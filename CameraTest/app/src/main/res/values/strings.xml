@@ -1,0 +1,18 @@
+<resources>
+    <string name="app_name">CameraTest</string>
+
+    <string name="radio_button_back_camera">Back camera</string>
+    <string name="radio_button_front_camera">Front camera</string>
+    <string name="switch_enable_preview">Enable preview</string>
+    <string name="button_start_camera">Start camera</string>
+    <string name="button_stop_camera">Stop camera</string>
+    <string name="button_take_photo_cold">Take photo cold</string>
+    <string name="button_take_photo_warm">Take photo warm</string>
+
+    <string name="latency_from_camera_inactive_to_ready">latency from camera inactive to ready:</string>
+    <string name="latency_from_take_photo_to_image_captured">latency from take photo begin to image captured:</string>
+    <string name="latency_from_image_in_ram_to_jpeg_encoded">latency from image in ram to jpeg encoded:</string>
+    <string name="latency_from_jpeg_encoded_to_jpeg_file_saved">latency from jpeg encoded to jpeg file saved:</string>
+    <string name="latency_from_take_photo_to_jpeg_file_saved">latency from take photo begin to jpeg file saved:</string>
+    <string name="latency_from_start_camera_to_jpeg_file_saved">latency from start camera to jpeg file saved:</string>
+</resources>

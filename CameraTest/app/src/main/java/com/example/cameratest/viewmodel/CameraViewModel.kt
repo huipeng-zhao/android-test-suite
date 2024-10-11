@@ -4,9 +4,11 @@ import android.content.Context
 import android.graphics.Bitmap
 import androidx.camera.view.PreviewView
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import com.example.cameratest.camera.CameraController
+import com.example.cameratest.data.MediaStoreImage
 import com.example.cameratest.utils.StorageUtil
 import com.example.cameratest.utils.ThumbnailUtil
 
@@ -46,6 +48,8 @@ class CameraViewModel : ViewModel() {
     var isCameraStateChanged = MutableLiveData<Boolean>(false)
     var isJpegSaved = MutableLiveData<Boolean>(false)
 
+    private val _images = MutableLiveData<List<MediaStoreImage>>()
+    val images: LiveData<List<MediaStoreImage>> get() = _images
 
     fun setCameraInactiveTime(time: Long) {
         _cameraInactiveTime.value = time
@@ -99,12 +103,17 @@ class CameraViewModel : ViewModel() {
         _startToSavedUsedTime.value = _jpegSavedTime.value!! - _cameraInactiveTime.value!!
     }
 
-    fun generateThumbnail(context: Context, bitmap: Bitmap, onImageSaved: (Bitmap) -> Unit) {
+    fun generateThumbnail(context: Context, bitmap: Bitmap, onImageSaved: (Bitmap, ByteArray) -> Unit) {
         thumbnailUtil.generateThumbnail(context, bitmap, onImageSaved)
     }
 
     suspend fun saveMediaToStorage(context: Context, bitmap: Bitmap, name: String) {
         storageUtil.saveMediaToStorage(context, bitmap, name)
+    }
+
+    suspend fun loadImages(context: Context) {
+        val imageList = storageUtil.queryImages(context)
+        _images.postValue(imageList)
     }
 
     fun startCameraPreview(owner: LifecycleOwner) {
@@ -124,14 +133,14 @@ class CameraViewModel : ViewModel() {
         return cameraController.getPreviewView(context)
     }
 
-    fun capturePhoto(context: Context, owner: LifecycleOwner, onImageSaved: (Bitmap) -> Unit) {
+    fun capturePhoto(context: Context, owner: LifecycleOwner, onImageSaved: (Bitmap, ByteArray) -> Unit) {
         cameraController.capturePhoto(context, owner, onImageSaved)
     }
 
     fun coldStartAndTakePhoto(
         context: Context,
         owner: LifecycleOwner,
-        onImageSaved: (Bitmap) -> Unit
+        onImageSaved: (Bitmap, ByteArray) -> Unit
     ) {
         cameraController.coldStartAndTakePhoto(context, owner, onImageSaved)
     }

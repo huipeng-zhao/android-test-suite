@@ -2,18 +2,22 @@ package com.example.cameratest.utils
 
 import android.content.Context
 import android.graphics.Bitmap
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
 
 class ThumbnailUtil {
 
-    fun generateThumbnail(context: Context, bitmap: Bitmap, onImageSaved: (Bitmap) -> Unit) {
+    fun generateThumbnail(context: Context, bitmap: Bitmap, onImageSaved: (Bitmap, ByteArray) -> Unit) {
         val thumbnail = Bitmap.createScaledBitmap(
             bitmap, (bitmap.width * 0.1).toInt(),
             (bitmap.height * 0.1).toInt(), true
         )
         saveThumbnail(context, thumbnail)
-        onImageSaved(thumbnail)
+        val outputStream = ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream)
+        val byteArray = outputStream.toByteArray()
+        onImageSaved(bitmap, byteArray)
     }
 
     private fun saveThumbnail(context: Context, thumbnail: Bitmap) {

@@ -8,6 +8,10 @@
     <string name="button_stop_camera">Stop camera</string>
     <string name="button_take_photo_cold">Take photo cold</string>
     <string name="button_take_photo_warm">Take photo warm</string>
+    <string name="select_file_name">File name: </string>
+    <string name="dialog_title_text_delete">Delete?</string>
+    <string name="dialog_confirm_text">Yes</string>
+    <string name="dialog_dissmiss_text">No</string>
 
     <string name="latency_from_camera_inactive_to_ready">latency from camera inactive to ready:</string>
     <string name="latency_from_take_photo_to_image_captured">latency from take photo begin to image captured:</string>

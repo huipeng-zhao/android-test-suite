@@ -6,8 +6,6 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.util.Log
 import android.view.View
-import androidx.annotation.OptIn
-import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
@@ -16,22 +14,44 @@ import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.camera.view.PreviewView.StreamState
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.Observer
 import androidx.lifecycle.lifecycleScope
+import com.example.cameratest.camera.CameraController.Companion.SHORT_EDGE
 import com.example.cameratest.viewmodel.CameraViewModel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
 
 class CameraController(private val viewModel: CameraViewModel) {
-    val TAG = "CameraController"
+    companion object {
+        const val TAG = "CameraController"
+        const val SHORT_EDGE = 720
+    }
     private var imageCapture: ImageCapture? = null
     private var previewView: PreviewView? = null
     private var camera: Camera? = null
     private var cameraProvider: ProcessCameraProvider? = null
     private var lensFacing: Int = CameraSelector.LENS_FACING_BACK
     private var previewEnable: Boolean = true
+    private val previewStreamStateObserver = Observer<StreamState> {
+        if (it == StreamState.STREAMING) {
+            if (previewEnable) {
+                previewView?.visibility = View.VISIBLE
+            }
+        } else if (it == StreamState.IDLE) {
+            if (previewEnable) {
+                previewView?.visibility = View.INVISIBLE
+            }
+        }
+    }
 
     fun getAvailableCamera(context : Context): List<Int> {
         cameraProvider = ProcessCameraProvider.getInstance(context).get()
@@ -72,7 +92,7 @@ class CameraController(private val viewModel: CameraViewModel) {
         Log.d(TAG, "setPreviewEnable: $previewEnable")
     }
 
-    fun coldStartAndTakePhoto(context: Context, owner: LifecycleOwner, onImageSaved: (Bitmap) -> Unit) {
+    fun coldStartAndTakePhoto(context: Context, owner: LifecycleOwner, onImageSaved: (Bitmap, ByteArray) -> Unit) {
         stopCameraPreview()
         bindCamera(owner)
         capturePhoto(context, owner, onImageSaved)
@@ -82,13 +102,10 @@ class CameraController(private val viewModel: CameraViewModel) {
         bindCamera(owner)
     }
 
-    @OptIn(ExperimentalCamera2Interop::class)
-    fun bindCamera(owner: LifecycleOwner) {
+    private fun bindCamera(owner: LifecycleOwner) {
         Log.d(TAG, "bindCamera: ")
         viewModel.setCameraInactiveTime(System.currentTimeMillis())
-        if (previewEnable) {
-            previewView?.visibility = View.VISIBLE
-        }
+        previewView?.previewStreamState?.observe(owner, previewStreamStateObserver)
         val previewBuilder = Preview.Builder()
         val preview = previewBuilder.build().also {
             it.setSurfaceProvider(previewView?.surfaceProvider)
@@ -116,6 +133,7 @@ class CameraController(private val viewModel: CameraViewModel) {
     }
 
     fun stopCameraPreview() {
+        previewView?.previewStreamState?.removeObserver(previewStreamStateObserver)
         cameraProvider?.unbindAll()
         viewModel.setCameraActivated(false)
         if (previewEnable) {
@@ -123,7 +141,7 @@ class CameraController(private val viewModel: CameraViewModel) {
         }
     }
 
-    fun capturePhoto(context : Context, owner : LifecycleOwner, onImageSaved : (Bitmap) -> Unit) = owner.lifecycleScope.launch {
+    fun capturePhoto(context : Context, owner : LifecycleOwner, onImageSaved : (Bitmap, ByteArray) -> Unit) = owner.lifecycleScope.launch {
         val imageCapture = imageCapture ?: return@launch
         viewModel.setStartTakePhotoTime(System.currentTimeMillis())
         imageCapture.takePicture(ContextCompat.getMainExecutor(context), object :
@@ -134,15 +152,19 @@ class CameraController(private val viewModel: CameraViewModel) {
                 viewModel.onImageCaptured()
                 owner.lifecycleScope.launch {
                     //encoded jpeg
-                    val bitmap = imageProxyToBitmap(owner, image).rotateBitmap(image.imageInfo.rotationDegrees)
+                    val bitmap = processImageFromBitmap(imageProxyToBitmap(owner, image),
+                        image.imageInfo.rotationDegrees.toFloat())
                     viewModel.setJpegEncodedTime(System.currentTimeMillis())
                     viewModel.onJpegEncoded()
                     //save jpeg to storage
-                    viewModel.saveMediaToStorage(context, bitmap, System.currentTimeMillis().toString())
+                    val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
+                    viewModel.saveMediaToStorage(context, bitmap, sdf.format(Date()))
                     viewModel.setJpegSavedTime(System.currentTimeMillis())
                     viewModel.onJpegSaved()
                     Log.d(TAG, "onJpegSaved: ")
                     viewModel.generateThumbnail(context, bitmap, onImageSaved)
+                    val outputStream = ByteArrayOutputStream()
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream)
                     image.close()
                 }
             }
@@ -164,11 +186,30 @@ class CameraController(private val viewModel: CameraViewModel) {
     }
 }
 
-fun Bitmap.rotateBitmap(rotationDegrees: Int): Bitmap {
-    val matrix = Matrix().apply {
-        postRotate(-rotationDegrees.toFloat())
-        postScale(-1f, -1f)
+fun processImageFromBitmap(bitmap: Bitmap, rotationDegrees: Float): Bitmap {
+    val originalWidth = bitmap.width
+    val originalHeight = bitmap.height
+    val aspectRatio: Float = originalWidth.toFloat() / originalHeight.toFloat()
+    val (targetWidth, targetHeight) = if (originalWidth < originalHeight) {
+        Pair(SHORT_EDGE, (SHORT_EDGE / aspectRatio).toInt())
+    } else {
+        Pair((SHORT_EDGE * aspectRatio).toInt(), SHORT_EDGE)
     }
 
-    return Bitmap.createBitmap(this, 0, 0, width, height, matrix, true)
+    val scaledBitmap = Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
+
+    val matrix = Matrix().apply {
+        postRotate(rotationDegrees)
+    }
+    val rotatedBitmap = Bitmap.createBitmap(
+        scaledBitmap,
+        0,
+        0,
+        scaledBitmap.width,
+        scaledBitmap.height,
+        matrix,
+        true
+    )
+
+    return rotatedBitmap
 }

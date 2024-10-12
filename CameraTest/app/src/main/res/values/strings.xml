@@ -6,8 +6,10 @@
     <string name="switch_enable_preview">Enable preview</string>
     <string name="button_start_camera">Start camera</string>
     <string name="button_stop_camera">Stop camera</string>
-    <string name="button_take_photo_cold">Take photo cold</string>
-    <string name="button_take_photo_warm">Take photo warm</string>
+    <string name="button_take_photo_cold1">Capture cold1</string>
+    <string name="button_take_photo_cold2">Capture cold2</string>
+    <string name="button_take_photo_warm1">Capture warm1</string>
+    <string name="button_take_photo_warm2">Capture warm2</string>
     <string name="select_file_name">File name: </string>
     <string name="dialog_title_text_delete">Delete?</string>
     <string name="dialog_confirm_text">Yes</string>

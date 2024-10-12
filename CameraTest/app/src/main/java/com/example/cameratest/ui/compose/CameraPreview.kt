@@ -11,6 +11,7 @@ import androidx.camera.core.CameraSelector
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -50,7 +51,6 @@ import com.example.cameratest.R
 import com.example.cameratest.utils.StorageUtil
 import com.example.cameratest.viewmodel.CameraViewModel
 import kotlinx.coroutines.launch
-import java.text.DecimalFormat
 
 @Composable
 fun CameraPreview(
@@ -79,6 +79,8 @@ fun CameraPreview(
 
     var selectedOption by remember { mutableIntStateOf(0) }
     var isTakePhotoCold by remember { mutableStateOf(false) }
+
+    var isOnImageSavedCallback by remember { mutableStateOf(false) }
 
     val options = viewModel.getAvailableCamera(context)
 
@@ -153,7 +155,7 @@ fun CameraPreview(
                 )
                 latencyText = stringResource(R.string.latency_from_take_photo_to_image_captured)
                 latencyResult =
-                    if (imageCapturedUsedTime!! > 0) "$latencyText $imageCapturedUsedTime ms"
+                    if (imageCapturedUsedTime!! > 0 && !isOnImageSavedCallback) "$latencyText $imageCapturedUsedTime ms"
                     else "$latencyText -"
                 Text(
                     text = latencyResult,
@@ -205,15 +207,16 @@ fun CameraPreview(
             }
         }
 
-        Box(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
                 .align(Alignment.BottomCenter),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             OutlinedButton(
                 enabled = isCameraButtonEnabled,
-                modifier = Modifier.align(Alignment.CenterStart),
+                modifier = Modifier.weight(1f),
                 onClick = {
                     isCameraButtonEnabled = !isCameraButtonEnabled
                     if (activated == true) {
@@ -226,7 +229,7 @@ fun CameraPreview(
                 Text(
                     text = if (activated == true) stringResource(R.string.button_stop_camera)
                     else stringResource(R.string.button_start_camera),
-                    fontSize = 18.sp,
+                    fontSize = 11.sp,
                     color = if (isCameraButtonEnabled) Color.White else Color.Gray
                 )
                 if (isCameraStateChanged == true) {
@@ -236,13 +239,14 @@ fun CameraPreview(
             if (activated == true) {
                 OutlinedButton(
                     enabled = isCaptureButtonEnabled,
-                    modifier = Modifier.align(Alignment.CenterEnd),
+                    modifier = Modifier.weight(1f),
                     onClick = {
                         val (available, percent) = storageUtil.isStorageAvailable()
                         if (available) {
                             isTakePhotoCold = false
+                            isOnImageSavedCallback = false
                             isCaptureButtonEnabled = !isCaptureButtonEnabled
-                            viewModel.capturePhoto(context, owner) { bitmap, byteArray ->
+                            viewModel.capturePhoto(context, owner, false) { bitmap, byteArray ->
                                 imageBitmap = bitmap
                             }
                         } else {
@@ -266,8 +270,50 @@ fun CameraPreview(
                     }
                 ) {
                     Text(
-                        text = stringResource(R.string.button_take_photo_warm),
-                        fontSize = 18.sp,
+                        text = stringResource(R.string.button_take_photo_warm1),
+                        fontSize = 11.sp,
+                        color = if (isCaptureButtonEnabled) Color.White else Color.Gray
+                    )
+                    if (isJpegSaved == true) {
+                        isCaptureButtonEnabled = true
+                    }
+                }
+
+                OutlinedButton(
+                    enabled = isCaptureButtonEnabled,
+                    modifier = Modifier.weight(1f),
+                    onClick = {
+                        val (available, percent) = storageUtil.isStorageAvailable()
+                        if (available) {
+                            isTakePhotoCold = false
+                            isOnImageSavedCallback = true
+                            isCaptureButtonEnabled = !isCaptureButtonEnabled
+                            viewModel.capturePhoto(context, owner, true) { bitmap, byteArray ->
+                                imageBitmap = bitmap
+                            }
+                        } else {
+                            coroutineScope.launch {
+                                val images = storageUtil.getOldestImages(context)
+                                images.forEach { image ->
+                                    storageUtil.performDeleteImage(
+                                        context,
+                                        image.first,
+                                        image.second
+                                    )
+                                }
+                            }
+                            Toast
+                                .makeText(
+                                    context,
+                                    "Storage is not available, remain $percent%, will delete some files",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                        }
+                    }
+                ) {
+                    Text(
+                        text = stringResource(R.string.button_take_photo_warm2),
+                        fontSize = 11.sp,
                         color = if (isCaptureButtonEnabled) Color.White else Color.Gray
                     )
                     if (isJpegSaved == true) {
@@ -277,13 +323,14 @@ fun CameraPreview(
             } else {
                 OutlinedButton(
                     enabled = isCaptureButtonEnabled,
-                    modifier = Modifier.align(Alignment.CenterEnd),
+                    modifier = Modifier.weight(1f),
                     onClick = {
                         val (available, percent) = storageUtil.isStorageAvailable()
                         if (available) {
                             isTakePhotoCold = true
+                            isOnImageSavedCallback = false
                             isCaptureButtonEnabled = !isCaptureButtonEnabled
-                            viewModel.coldStartAndTakePhoto(context, owner) { bitmap, byteArray ->
+                            viewModel.coldStartAndTakePhoto(context, owner, false) { bitmap, byteArray ->
                                 imageBitmap = bitmap
                             }
                         } else {
@@ -307,8 +354,50 @@ fun CameraPreview(
                     }
                 ) {
                     Text(
-                        text = stringResource(R.string.button_take_photo_cold),
-                        fontSize = 18.sp,
+                        text = stringResource(R.string.button_take_photo_cold1),
+                        fontSize = 11.sp,
+                        color = Color.White
+                    )
+                    if (isJpegSaved == true) {
+                        isCaptureButtonEnabled = true
+                    }
+                }
+
+                OutlinedButton(
+                    enabled = isCaptureButtonEnabled,
+                    modifier = Modifier.weight(1f),
+                    onClick = {
+                        val (available, percent) = storageUtil.isStorageAvailable()
+                        if (available) {
+                            isTakePhotoCold = true
+                            isOnImageSavedCallback = true
+                            isCaptureButtonEnabled = !isCaptureButtonEnabled
+                            viewModel.coldStartAndTakePhoto(context, owner, true) { bitmap, byteArray ->
+                                imageBitmap = bitmap
+                            }
+                        } else {
+                            coroutineScope.launch {
+                                val images = storageUtil.getOldestImages(context)
+                                images.forEach { image ->
+                                    storageUtil.performDeleteImage(
+                                        context,
+                                        image.first,
+                                        image.second
+                                    )
+                                }
+                            }
+                            Toast
+                                .makeText(
+                                    context,
+                                    "Storage is not available, remain $percent%, will delete some files",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                        }
+                    }
+                ) {
+                    Text(
+                        text = stringResource(R.string.button_take_photo_cold2),
+                        fontSize = 10.sp,
                         color = Color.White
                     )
                     if (isJpegSaved == true) {
@@ -418,10 +507,13 @@ fun CameraPreview(
                         .clickable {
                             val (available, percent) = storageUtil.isStorageAvailable()
                             if (available) {
-                                Toast.makeText(
+                                Toast
+                                    .makeText(
                                         context,
                                         "Storage is available, remain $percent%",
-                                        Toast.LENGTH_SHORT).show()
+                                        Toast.LENGTH_SHORT
+                                    )
+                                    .show()
                             } else {
                                 coroutineScope.launch {
                                     val images = storageUtil.getOldestImages(context)
@@ -433,10 +525,13 @@ fun CameraPreview(
                                         )
                                     }
                                 }
-                                Toast.makeText(
+                                Toast
+                                    .makeText(
                                         context,
                                         "Storage is not available, remain $percent%, will delete some files",
-                                        Toast.LENGTH_SHORT).show()
+                                        Toast.LENGTH_SHORT
+                                    )
+                                    .show()
                             }
                         }
                 )

@@ -133,16 +133,21 @@ class CameraViewModel : ViewModel() {
         return cameraController.getPreviewView(context)
     }
 
-    fun capturePhoto(context: Context, owner: LifecycleOwner, onImageSaved: (Bitmap, ByteArray) -> Unit) {
-        cameraController.capturePhoto(context, owner, onImageSaved)
+    fun capturePhoto(
+        context: Context,
+        owner: LifecycleOwner,
+        isOnImageSavedCallback: Boolean,
+        onImageSaved: (Bitmap, ByteArray) -> Unit) {
+        cameraController.capturePhoto(context, owner, isOnImageSavedCallback, onImageSaved)
     }
 
     fun coldStartAndTakePhoto(
         context: Context,
         owner: LifecycleOwner,
+        isOnImageSavedCallback: Boolean,
         onImageSaved: (Bitmap, ByteArray) -> Unit
     ) {
-        cameraController.coldStartAndTakePhoto(context, owner, onImageSaved)
+        cameraController.coldStartAndTakePhoto(context, owner, isOnImageSavedCallback, onImageSaved)
     }
 
     fun setPreviewEnable(enable: Boolean) {

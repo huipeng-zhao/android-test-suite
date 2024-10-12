@@ -1,9 +1,14 @@
 package com.example.cameratest.camera
 
+import android.content.ContentResolver
+import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
+import android.net.Uri
+import android.os.Environment
+import android.provider.MediaStore
 import android.util.Log
 import android.view.View
 import androidx.camera.core.Camera
@@ -19,11 +24,14 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.Observer
 import androidx.lifecycle.lifecycleScope
+import com.example.cameratest.MainActivity
 import com.example.cameratest.camera.CameraController.Companion.SHORT_EDGE
+import com.example.cameratest.utils.OrientationService
 import com.example.cameratest.viewmodel.CameraViewModel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
+import java.io.InputStream
 import java.nio.ByteBuffer
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -92,10 +100,10 @@ class CameraController(private val viewModel: CameraViewModel) {
         Log.d(TAG, "setPreviewEnable: $previewEnable")
     }
 
-    fun coldStartAndTakePhoto(context: Context, owner: LifecycleOwner, onImageSaved: (Bitmap, ByteArray) -> Unit) {
+    fun coldStartAndTakePhoto(context: Context, owner: LifecycleOwner, isOnImageSavedCallback: Boolean, onImageSaved: (Bitmap, ByteArray) -> Unit) {
         stopCameraPreview()
         bindCamera(owner)
-        capturePhoto(context, owner, onImageSaved)
+        capturePhoto(context, owner, isOnImageSavedCallback, onImageSaved)
     }
 
     fun startCameraPreview(owner : LifecycleOwner) {
@@ -141,39 +149,80 @@ class CameraController(private val viewModel: CameraViewModel) {
         }
     }
 
-    fun capturePhoto(context : Context, owner : LifecycleOwner, onImageSaved : (Bitmap, ByteArray) -> Unit) = owner.lifecycleScope.launch {
+    fun capturePhoto(context : Context, owner : LifecycleOwner, isOnImageSavedCallback : Boolean, onImageSaved : (Bitmap, ByteArray) -> Unit) = owner.lifecycleScope.launch {
         val imageCapture = imageCapture ?: return@launch
         viewModel.setStartTakePhotoTime(System.currentTimeMillis())
-        imageCapture.takePicture(ContextCompat.getMainExecutor(context), object :
-            ImageCapture.OnImageCapturedCallback() {
-            override fun onCaptureSuccess(image: ImageProxy) {
-                super.onCaptureSuccess(image)
-                viewModel.setImageCapturedTime(System.currentTimeMillis())
-                viewModel.onImageCaptured()
-                owner.lifecycleScope.launch {
-                    //encoded jpeg
-                    val bitmap = processImageFromBitmap(imageProxyToBitmap(owner, image),
-                        image.imageInfo.rotationDegrees.toFloat())
-                    viewModel.setJpegEncodedTime(System.currentTimeMillis())
-                    viewModel.onJpegEncoded()
-                    //save jpeg to storage
-                    val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
-                    viewModel.saveMediaToStorage(context, bitmap, sdf.format(Date()))
-                    viewModel.setJpegSavedTime(System.currentTimeMillis())
-                    viewModel.onJpegSaved()
-                    Log.d(TAG, "onJpegSaved: ")
-                    viewModel.generateThumbnail(context, bitmap, onImageSaved)
-                    val outputStream = ByteArrayOutputStream()
-                    bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream)
-                    image.close()
-                }
+        if (isOnImageSavedCallback) {
+            val name = System.currentTimeMillis().toString() + ".jpg"
+            val contentValues = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, name)
+                put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+                put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DCIM)
             }
 
-            override fun onError(exception: ImageCaptureException) {
-                super.onError(exception)
-                Log.d(TAG,"onCaptureSuccess: onError : " + exception.message)
-            }
-        })
+            val outputOptions = ImageCapture.OutputFileOptions
+                .Builder(context.contentResolver,
+                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                    contentValues)
+                .build()
+            imageCapture.takePicture(outputOptions, ContextCompat.getMainExecutor(context),
+                object : ImageCapture.OnImageSavedCallback {
+                    override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                        val time = System.currentTimeMillis()
+                        viewModel.setImageCapturedTime(time)
+                        viewModel.onImageCaptured()
+                        viewModel.setJpegEncodedTime(time)
+                        viewModel.onJpegEncoded()
+                        viewModel.setJpegSavedTime(time)
+                        viewModel.onJpegSaved()
+                        val bitmap : Bitmap?  = processImageFromOutputFileResults(context.contentResolver, output)
+                        viewModel.generateThumbnail(context, bitmap!!, onImageSaved)
+                    }
+
+                    override fun onError(exception: ImageCaptureException) {
+                        Log.e(TAG, "Photo capture failed: ${exception.message}", exception)
+                    }
+                }
+            )
+        } else {
+            imageCapture.takePicture(ContextCompat.getMainExecutor(context), object :
+                ImageCapture.OnImageCapturedCallback() {
+                override fun onCaptureSuccess(image: ImageProxy) {
+                    super.onCaptureSuccess(image)
+                    viewModel.setImageCapturedTime(System.currentTimeMillis())
+                    viewModel.onImageCaptured()
+                    owner.lifecycleScope.launch {
+                        var rotationDegrees = when ((context as MainActivity).getOrientationService().layoutOrientation) {
+                            OrientationService.LayoutOrientation.Portrait -> 90f
+                            OrientationService.LayoutOrientation.Landscape -> 0f
+                            OrientationService.LayoutOrientation.ReversePortrait -> 270f
+                            OrientationService.LayoutOrientation.ReverseLandscape -> 180f
+                            else -> 90f
+                        }
+                        //encoded jpeg
+                        val bitmap = processImageFromBitmap(imageProxyToBitmap(owner, image),
+                            rotationDegrees)
+                        viewModel.setJpegEncodedTime(System.currentTimeMillis())
+                        viewModel.onJpegEncoded()
+                        //save jpeg to storage
+                        val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
+                        viewModel.saveMediaToStorage(context, bitmap, sdf.format(Date()))
+                        viewModel.setJpegSavedTime(System.currentTimeMillis())
+                        viewModel.onJpegSaved()
+                        Log.d(TAG, "onJpegSaved: ")
+                        viewModel.generateThumbnail(context, bitmap, onImageSaved)
+                        val outputStream = ByteArrayOutputStream()
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream)
+                        image.close()
+                    }
+                }
+
+                override fun onError(exception: ImageCaptureException) {
+                    super.onError(exception)
+                    Log.d(TAG,"onCaptureSuccess: onError : " + exception.message)
+                }
+            })
+        }
     }
 
     private suspend fun imageProxyToBitmap(owner : LifecycleOwner, image: ImageProxy): Bitmap =
@@ -183,6 +232,33 @@ class CameraController(private val viewModel: CameraViewModel) {
             val bytes = ByteArray(buffer.remaining())
             buffer.get(bytes)
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+    }
+
+    fun processImageFromOutputFileResults(
+        contentResolver: ContentResolver,
+        outputFileResults: ImageCapture.OutputFileResults
+    ): Bitmap? {
+        val savedUri: Uri = outputFileResults.savedUri ?: return null
+
+        val inputStream: InputStream? = contentResolver.openInputStream(savedUri)
+        val bitmap: Bitmap = BitmapFactory.decodeStream(inputStream)
+        inputStream?.close()
+
+        val originalWidth = bitmap.width
+        val originalHeight = bitmap.height
+
+        val shortEdge = 720
+        val aspectRatio: Float = originalWidth.toFloat() / originalHeight.toFloat()
+
+        val (targetWidth, targetHeight) = if (originalWidth < originalHeight) {
+            Pair(shortEdge, (shortEdge / aspectRatio).toInt())
+        } else {
+            Pair((shortEdge * aspectRatio).toInt(), shortEdge)
+        }
+
+        val scaledBitmap = Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
+
+        return scaledBitmap
     }
 }
 

@@ -65,7 +65,7 @@ class CameraController(private val viewModel: CameraViewModel) {
     private var camera: Camera? = null
     private var cameraProvider: ProcessCameraProvider? = null
     private var lensFacing: Int = CameraSelector.LENS_FACING_BACK
-    private var previewEnable: Boolean = true
+    private var previewEnable: Boolean = false
     private val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
     private val cameraMode = arrayOf(PHOTO, VIDEO)
     private var currentCameraMode = cameraMode[0]

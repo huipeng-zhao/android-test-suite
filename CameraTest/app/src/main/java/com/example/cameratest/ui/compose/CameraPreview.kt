@@ -75,7 +75,7 @@ fun CameraPreview(
                         PackageManager.PERMISSION_GRANTED
             })
     }
-    var checked by rememberSaveable { mutableStateOf(true) }
+    var checked by rememberSaveable { mutableStateOf(false) }
 
     var isCameraButtonEnabled by remember { mutableStateOf(true) }
     var isCaptureButtonEnabled by remember { mutableStateOf(true) }

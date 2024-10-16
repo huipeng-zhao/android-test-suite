@@ -8,7 +8,7 @@ espressoCore = "3.6.1"
 lifecycleRuntimeKtx = "2.8.5"
 activityCompose = "1.9.1"
 composeBom = "2023.08.00"
-camerax = "1.3.4"
+camerax = "1.4.0-beta02"
 android-lifecycle = "2.6.1"
 navigation = "2.8.0"
 

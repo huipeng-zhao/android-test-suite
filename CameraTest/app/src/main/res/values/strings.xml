@@ -6,17 +6,23 @@
     <string name="switch_enable_preview">Enable preview</string>
     <string name="button_start_camera">Start camera</string>
     <string name="button_stop_camera">Stop camera</string>
+    <string name="button_start_record">Start record</string>
+    <string name="button_stop_record">Stop record</string>
     <string name="button_take_photo_cold1">Capture cold1</string>
     <string name="button_take_photo_cold2">Capture cold2</string>
     <string name="button_take_photo_warm1">Capture warm1</string>
     <string name="button_take_photo_warm2">Capture warm2</string>
+    <string name="button_check_storage">Check storage</string>
     <string name="select_file_name">File name: </string>
     <string name="dialog_title_text_delete">Delete?</string>
     <string name="dialog_confirm_text">Yes</string>
     <string name="dialog_dissmiss_text">No</string>
+    <string name="camera_mode_photo_text">Photo</string>
+    <string name="camera_mode_video_text">Video</string>
 
     <string name="latency_from_camera_inactive_to_ready">latency from camera inactive to ready:</string>
     <string name="latency_from_take_photo_to_image_captured">latency from take photo begin to image captured:</string>
+    <string name="latency_from_take_photo_to_image_capture_started">latency from take photo begin to image capture started:</string>
     <string name="latency_from_image_in_ram_to_jpeg_encoded">latency from image in ram to jpeg encoded:</string>
     <string name="latency_from_jpeg_encoded_to_jpeg_file_saved">latency from jpeg encoded to jpeg file saved:</string>
     <string name="latency_from_take_photo_to_jpeg_file_saved">latency from take photo begin to jpeg file saved:</string>

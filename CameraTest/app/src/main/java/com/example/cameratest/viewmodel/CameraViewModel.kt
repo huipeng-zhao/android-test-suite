@@ -24,9 +24,12 @@ class CameraViewModel : ViewModel() {
     var startCameraUsedTime = _startCameraUsedTime
 
     private var _startTakePhotoTime = MutableLiveData<Long>(0)
+    private var _imageCaptureStartedTime = MutableLiveData<Long>(0)
     private var _imageCapturedTime = MutableLiveData<Long>(0)
     private var _imageCapturedUsedTime = MutableLiveData<Long>(0)
     var imageCapturedUsedTime = _imageCapturedUsedTime
+    private var _imageCaptureStartedUsedTime = MutableLiveData<Long>(0)
+    var imageCaptureStartedUsedTime = _imageCaptureStartedUsedTime
 
     private var _jpegEncodedTime = MutableLiveData<Long>(0)
     private var _jpegEncodedUsedTime = MutableLiveData<Long>(0)
@@ -51,6 +54,12 @@ class CameraViewModel : ViewModel() {
     private val _images = MutableLiveData<List<MediaStoreImage>>()
     val images: LiveData<List<MediaStoreImage>> get() = _images
 
+    private var _imageBitmap = MutableLiveData<Bitmap>(null)
+    val imageBitmap: LiveData<Bitmap> get() = _imageBitmap
+
+    private var _currentCameraMode = MutableLiveData<Int>(0)
+    var currentCameraMode = _currentCameraMode
+
     fun setCameraInactiveTime(time: Long) {
         _cameraInactiveTime.value = time
         isCameraStateChanged.postValue(false)
@@ -65,6 +74,10 @@ class CameraViewModel : ViewModel() {
     fun setStartTakePhotoTime(time: Long) {
         _startTakePhotoTime.value = time
         isJpegSaved.postValue(false)
+    }
+
+    fun setImageCaptureStartedTime(time: Long) {
+        _imageCaptureStartedTime.value = time
     }
 
     fun setImageCapturedTime(time: Long) {
@@ -87,6 +100,10 @@ class CameraViewModel : ViewModel() {
 
     fun onCameraUsedTimeChanged() {
         _startCameraUsedTime.value = _cameraReadyTime.value!! - _cameraInactiveTime.value!!
+    }
+
+    fun onImageCaptureStarted() {
+        _imageCaptureStartedUsedTime.value = _imageCaptureStartedTime.value!! - _startTakePhotoTime.value!!
     }
 
     fun onImageCaptured() {
@@ -129,6 +146,10 @@ class CameraViewModel : ViewModel() {
         return cameraController.getAvailableCamera(context)
     }
 
+    fun getCameraModeList(): List<Int> {
+        return cameraController.getCameraModeList()
+    }
+
     fun getPreviewView(context: Context): PreviewView {
         return cameraController.getPreviewView(context)
     }
@@ -136,18 +157,20 @@ class CameraViewModel : ViewModel() {
     fun capturePhoto(
         context: Context,
         owner: LifecycleOwner,
-        isOnImageSavedCallback: Boolean,
-        onImageSaved: (Bitmap, ByteArray) -> Unit) {
-        cameraController.capturePhoto(context, owner, isOnImageSavedCallback, onImageSaved)
+        isOnImageSavedCallback: Boolean) {
+        cameraController.capturePhoto(context, owner, isOnImageSavedCallback) { bitmap, byteArray ->
+            _imageBitmap.value = bitmap
+        }
     }
 
     fun coldStartAndTakePhoto(
         context: Context,
         owner: LifecycleOwner,
-        isOnImageSavedCallback: Boolean,
-        onImageSaved: (Bitmap, ByteArray) -> Unit
+        isOnImageSavedCallback: Boolean
     ) {
-        cameraController.coldStartAndTakePhoto(context, owner, isOnImageSavedCallback, onImageSaved)
+        cameraController.coldStartAndTakePhoto(context, owner, isOnImageSavedCallback) { bitmap, byteArray ->
+            _imageBitmap.value = bitmap
+        }
     }
 
     fun setPreviewEnable(enable: Boolean) {
@@ -156,6 +179,21 @@ class CameraViewModel : ViewModel() {
 
     fun setLens(lens: Int) {
         cameraController.setLens(lens)
+    }
+
+    fun setCameraMode(mode: Int) {
+        _currentCameraMode.value = mode
+        cameraController.setCameraMode(mode)
+    }
+
+    fun startRecording(context : Context, onStartSuccess : () -> Unit, onStartFail : () -> Unit) {
+        cameraController.startRecording(context, true, onStartSuccess, onStartFail) {
+                bitmap, byteArray -> _imageBitmap.value = bitmap
+        }
+    }
+
+    fun stopRecording() {
+        cameraController.stopRecording()
     }
 
     private fun clearTime() {
@@ -171,5 +209,14 @@ class CameraViewModel : ViewModel() {
         _jpegSavedUsedTime.postValue(0)
         _takePhotoUsedTime.postValue(0)
         _startToSavedUsedTime.postValue(0)
+    }
+
+    fun clearCaptureTime() {
+        imageCaptureStartedUsedTime.postValue(0)
+        imageCapturedUsedTime.postValue(0)
+        jpegEncodedUsedTime.postValue(0)
+        jpegSavedUsedTime.postValue(0)
+        takePhotoUsedTime.postValue(0)
+        startToSavedUsedTime.postValue(0)
     }
 }

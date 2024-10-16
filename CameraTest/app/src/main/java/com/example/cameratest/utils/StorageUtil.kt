@@ -5,16 +5,20 @@ import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Environment
+import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
 import android.util.Log
 import android.widget.Toast
+import com.example.cameratest.camera.CameraController.Companion.SHORT_EDGE
 import com.example.cameratest.data.MediaStoreImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
+import java.io.FileDescriptor
 import java.io.IOException
 import java.io.OutputStream
 import java.util.Date
@@ -71,20 +75,20 @@ class StorageUtil {
         val images = mutableListOf<MediaStoreImage>()
         withContext(Dispatchers.IO) {
             val projection = arrayOf(
-                MediaStore.Images.Media._ID,
-                MediaStore.Images.Media.DISPLAY_NAME,
-                MediaStore.Images.Media.DATE_ADDED
+                MediaStore.Files.FileColumns._ID,
+                MediaStore.Files.FileColumns.DISPLAY_NAME,
+                MediaStore.Files.FileColumns.DATE_ADDED
             )
 
-            val selection = "${MediaStore.Images.Media.DATA} LIKE ?"
+            val selection = "${MediaStore.Files.FileColumns.DATA} LIKE ?"
             val selectionArgs = arrayOf(
                 "%/DCIM/%"
             )
 
-            val sortOrder = "${MediaStore.Images.Media.DATE_ADDED} DESC"
+            val sortOrder = "${MediaStore.Files.FileColumns.DATE_ADDED} DESC"
 
             context.contentResolver.query(
-                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL),
                 projection,
                 selection,
                 selectionArgs,
@@ -105,13 +109,18 @@ class StorageUtil {
                         Date(TimeUnit.SECONDS.toMillis(cursor.getLong(dateModifiedColumn)))
                     val displayName = cursor.getString(displayNameColumn)
 
-
                     val contentUri = ContentUris.withAppendedId(
-                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                        MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL),
                         id
                     )
-
-                    val bitmap = getBitmapFromUri(contentUri, context)
+                    var bitmap: Bitmap?
+                    if (displayName.endsWith(".mp4")) {
+                        val pfd: ParcelFileDescriptor? = context.contentResolver.openFileDescriptor(
+                            contentUri, "r")
+                        bitmap = createVideoThumbnailBitmap(pfd?.fileDescriptor)
+                    } else {
+                        bitmap = getBitmapFromUri(contentUri, context)
+                    }
 
                     val image = MediaStoreImage(id, displayName, dateModified, contentUri, bitmap)
                     images += image
@@ -199,6 +208,35 @@ class StorageUtil {
 
         inputStream?.close()
         return bitmap
+    }
+
+    fun createVideoThumbnailBitmap(fd: FileDescriptor?): Bitmap {
+        var bitmap: Bitmap? = null
+        val retriever = MediaMetadataRetriever()
+        try {
+            retriever.setDataSource(fd)
+            bitmap = retriever.getFrameAtTime(-1)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            try {
+                retriever.release()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        val originalWidth = bitmap!!.width
+        val originalHeight = bitmap.height
+        val aspectRatio: Float = originalWidth.toFloat() / originalHeight.toFloat()
+        val (targetWidth, targetHeight) = if (originalWidth < originalHeight) {
+            Pair(SHORT_EDGE, (SHORT_EDGE / aspectRatio).toInt())
+        } else {
+            Pair((SHORT_EDGE * aspectRatio).toInt(), SHORT_EDGE)
+        }
+
+        val scaledBitmap = Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
+        return scaledBitmap
     }
 
     fun uriToByteArray(uri: Uri, context: Context): ByteArray? {

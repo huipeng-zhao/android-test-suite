@@ -38,9 +38,11 @@ private fun addMainView(
 ) {
     navGraphBuilder.composable(route = NavRoute.Main.path) {
         CameraTestTheme {
-            CameraPreview(context , owner, viewModel, onFinish) {
+            CameraPreview(context, owner, viewModel, onFinish, {
                 navController.navigate(NavRoute.Gallery.path)
-            }
+            }, {
+                navController.navigate(NavRoute.Video.path)
+            })
         }
     }
 }
@@ -49,7 +51,7 @@ private fun addGalleryView(
     navController: NavHostController,
     navGraphBuilder: NavGraphBuilder,
     context: Context,
-    viewModel: CameraViewModel,) {
+    viewModel: CameraViewModel) {
     navGraphBuilder.composable(route = NavRoute.Gallery.path) {
         GalleryView(context, viewModel) {
             navController.navigate(NavRoute.Main.path)

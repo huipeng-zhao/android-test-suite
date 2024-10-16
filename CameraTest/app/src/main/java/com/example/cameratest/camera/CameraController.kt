@@ -1,5 +1,6 @@
 package com.example.cameratest.camera
 
+import android.annotation.SuppressLint
 import android.content.ContentResolver
 import android.content.ContentValues
 import android.content.Context
@@ -8,9 +9,11 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.net.Uri
 import android.os.Environment
+import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
 import android.util.Log
 import android.view.View
+import android.widget.Toast
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
@@ -18,6 +21,15 @@ import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.video.FileOutputOptions
+import androidx.camera.video.MediaStoreOutputOptions
+import androidx.camera.video.PendingRecording
+import androidx.camera.video.Quality
+import androidx.camera.video.QualitySelector
+import androidx.camera.video.Recorder
+import androidx.camera.video.Recording
+import androidx.camera.video.VideoCapture
+import androidx.camera.video.VideoRecordEvent
 import androidx.camera.view.PreviewView
 import androidx.camera.view.PreviewView.StreamState
 import androidx.core.content.ContextCompat
@@ -27,14 +39,14 @@ import androidx.lifecycle.lifecycleScope
 import com.example.cameratest.MainActivity
 import com.example.cameratest.camera.CameraController.Companion.SHORT_EDGE
 import com.example.cameratest.utils.OrientationService
+import com.example.cameratest.utils.StorageUtil
 import com.example.cameratest.viewmodel.CameraViewModel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayOutputStream
+import java.io.File
 import java.io.InputStream
 import java.nio.ByteBuffer
 import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
 
 
@@ -42,13 +54,21 @@ class CameraController(private val viewModel: CameraViewModel) {
     companion object {
         const val TAG = "CameraController"
         const val SHORT_EDGE = 720
+        const val PHOTO = 0
+        const val VIDEO = 1
     }
+
     private var imageCapture: ImageCapture? = null
+    private var videoCapture: VideoCapture<Recorder>? = null
+    private var currentRecording: Recording? = null
     private var previewView: PreviewView? = null
     private var camera: Camera? = null
     private var cameraProvider: ProcessCameraProvider? = null
     private var lensFacing: Int = CameraSelector.LENS_FACING_BACK
     private var previewEnable: Boolean = true
+    private val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
+    private val cameraMode = arrayOf(PHOTO, VIDEO)
+    private var currentCameraMode = cameraMode[0]
     private val previewStreamStateObserver = Observer<StreamState> {
         if (it == StreamState.STREAMING) {
             if (previewEnable) {
@@ -87,6 +107,14 @@ class CameraController(private val viewModel: CameraViewModel) {
         lensFacing = lens
     }
 
+    fun setCameraMode(mode:Int) {
+        currentCameraMode = mode
+    }
+
+    fun getCameraModeList(): List<Int> {
+        return cameraMode.asList()
+    }
+
     fun getPreviewView(context: Context): PreviewView {
         if (previewView == null) {
             previewView = PreviewView(context)
@@ -123,13 +151,19 @@ class CameraController(private val viewModel: CameraViewModel) {
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
             .build()
 
+        val recorder = Recorder.Builder()
+            .setQualitySelector(QualitySelector.from(Quality.HIGHEST))
+            .build()
+        videoCapture = VideoCapture.withOutput(recorder)
+
         val camSelector = CameraSelector.Builder().requireLensFacing(lensFacing).build()
         try {
+            cameraProvider?.unbindAll()
             camera = cameraProvider?.bindToLifecycle(
                 owner,
                 camSelector,
                 preview,
-                imageCapture
+                if (currentCameraMode == PHOTO) imageCapture else videoCapture
             )
             Log.d(TAG, "setCameraReadyTime: ")
             viewModel.setCameraReadyTime(System.currentTimeMillis())
@@ -151,6 +185,7 @@ class CameraController(private val viewModel: CameraViewModel) {
 
     fun capturePhoto(context : Context, owner : LifecycleOwner, isOnImageSavedCallback : Boolean, onImageSaved : (Bitmap, ByteArray) -> Unit) = owner.lifecycleScope.launch {
         val imageCapture = imageCapture ?: return@launch
+        viewModel.clearCaptureTime()
         viewModel.setStartTakePhotoTime(System.currentTimeMillis())
         if (isOnImageSavedCallback) {
             val name = System.currentTimeMillis().toString() + ".jpg"
@@ -167,6 +202,11 @@ class CameraController(private val viewModel: CameraViewModel) {
                 .build()
             imageCapture.takePicture(outputOptions, ContextCompat.getMainExecutor(context),
                 object : ImageCapture.OnImageSavedCallback {
+                    override fun onCaptureStarted() {
+                        super.onCaptureStarted()
+                        viewModel.setImageCaptureStartedTime(System.currentTimeMillis())
+                        viewModel.onImageCaptureStarted()
+                    }
                     override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                         val time = System.currentTimeMillis()
                         viewModel.setImageCapturedTime(time)
@@ -187,6 +227,11 @@ class CameraController(private val viewModel: CameraViewModel) {
         } else {
             imageCapture.takePicture(ContextCompat.getMainExecutor(context), object :
                 ImageCapture.OnImageCapturedCallback() {
+                override fun onCaptureStarted() {
+                    super.onCaptureStarted()
+                    viewModel.setImageCaptureStartedTime(System.currentTimeMillis())
+                    viewModel.onImageCaptureStarted()
+                }
                 override fun onCaptureSuccess(image: ImageProxy) {
                     super.onCaptureSuccess(image)
                     viewModel.setImageCapturedTime(System.currentTimeMillis())
@@ -206,13 +251,11 @@ class CameraController(private val viewModel: CameraViewModel) {
                         viewModel.onJpegEncoded()
                         //save jpeg to storage
                         val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
-                        viewModel.saveMediaToStorage(context, bitmap, sdf.format(Date()))
+                        viewModel.saveMediaToStorage(context, bitmap, sdf.format(System.currentTimeMillis()))
                         viewModel.setJpegSavedTime(System.currentTimeMillis())
                         viewModel.onJpegSaved()
                         Log.d(TAG, "onJpegSaved: ")
                         viewModel.generateThumbnail(context, bitmap, onImageSaved)
-                        val outputStream = ByteArrayOutputStream()
-                        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream)
                         image.close()
                     }
                 }
@@ -259,6 +302,70 @@ class CameraController(private val viewModel: CameraViewModel) {
         val scaledBitmap = Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
 
         return scaledBitmap
+    }
+
+    @SuppressLint("MissingPermission")
+    fun startRecording(context : Context, useMediaStore : Boolean, onStartSuccess : () -> Unit,
+                       onStartFail : () -> Unit, onImageSaved : (Bitmap, ByteArray) -> Unit) {
+        val videoFileName = sdf.format(System.currentTimeMillis()) + ".mp4"
+
+        val contentValues = ContentValues().apply {
+            put(MediaStore.Video.Media.DISPLAY_NAME, videoFileName)
+            put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4")
+            put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DCIM)
+        }
+        val mediaStoreOutput = MediaStoreOutputOptions.Builder(
+            context.contentResolver,
+            MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
+            .setContentValues(contentValues)
+            .build()
+
+        val fileStoreOutput = FileOutputOptions.Builder(
+            File(
+                context.externalMediaDirs.firstOrNull(),
+                videoFileName
+            )
+        ).build()
+
+        val pendingRecording: PendingRecording? = if (useMediaStore) {
+            videoCapture?.output?.prepareRecording(context, mediaStoreOutput)
+        } else {
+            videoCapture?.output?.prepareRecording(context, fileStoreOutput)
+        }
+
+        currentRecording = pendingRecording?.apply { withAudioEnabled() }
+            ?.start(ContextCompat.getMainExecutor(context)) { recordEvent ->
+                when(recordEvent) {
+                    is VideoRecordEvent.Start -> {
+                        onStartSuccess()
+                    }
+                    is VideoRecordEvent.Finalize -> {
+                        if (!recordEvent.hasError()) {
+                            val pfd: ParcelFileDescriptor? = context.contentResolver
+                                .openFileDescriptor(recordEvent.outputResults.outputUri, "r")
+                            val bitmap : Bitmap  = StorageUtil().createVideoThumbnailBitmap(pfd?.fileDescriptor)
+                            viewModel.generateThumbnail(context, bitmap, onImageSaved)
+                            val msg = "Video capture succeeded: " +
+                                    "${recordEvent.outputResults.outputUri}"
+                            Toast.makeText(context, msg, Toast.LENGTH_SHORT)
+                                .show()
+                            Log.d(TAG, msg)
+                        } else {
+                            currentRecording?.close()
+                            currentRecording = null
+                            Log.e(TAG, "Video capture ends with error: " +
+                                    "${recordEvent.error}")
+                            onStartFail()
+                        }
+                    }
+                }
+            }
+        Log.i(TAG, "Recording started")
+    }
+
+    fun stopRecording() {
+        currentRecording?.stop()
+        currentRecording = null
     }
 }
 

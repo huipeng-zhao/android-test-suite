@@ -20,11 +20,11 @@
     <string name="camera_mode_photo_text">Photo</string>
     <string name="camera_mode_video_text">Video</string>
 
-    <string name="latency_from_camera_inactive_to_ready">latency from camera inactive to ready:</string>
-    <string name="latency_from_take_photo_to_image_captured">latency from take photo begin to image captured:</string>
-    <string name="latency_from_take_photo_to_image_capture_started">latency from take photo begin to image capture started:</string>
-    <string name="latency_from_image_in_ram_to_jpeg_encoded">latency from image in ram to jpeg encoded:</string>
-    <string name="latency_from_jpeg_encoded_to_jpeg_file_saved">latency from jpeg encoded to jpeg file saved:</string>
-    <string name="latency_from_take_photo_to_jpeg_file_saved">latency from take photo begin to jpeg file saved:</string>
-    <string name="latency_from_start_camera_to_jpeg_file_saved">latency from start camera to jpeg file saved:</string>
+    <string name="latency_from_camera_inactive_to_ready">camera cold start -> camera ready</string>
+    <string name="latency_from_image_capture_started_to_image_captured">image capture started -> image captured</string>
+    <string name="latency_from_take_photo_to_image_capture_started">take photo begin -> image capture started</string>
+    <string name="latency_from_image_in_ram_to_jpeg_encoded">image captured -> jpeg encoded</string>
+    <string name="latency_from_jpeg_encoded_to_jpeg_file_saved">jpeg encoded -> jpeg file saved</string>
+    <string name="latency_from_take_photo_to_jpeg_file_saved">take photo begin -> jpeg file saved</string>
+    <string name="latency_from_start_camera_to_jpeg_file_saved">cold start camera -> jpeg file saved</string>
 </resources>

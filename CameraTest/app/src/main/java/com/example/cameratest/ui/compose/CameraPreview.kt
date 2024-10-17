@@ -18,10 +18,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
@@ -38,6 +40,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.res.painterResource
@@ -59,8 +62,7 @@ fun CameraPreview(
     owner: LifecycleOwner,
     viewModel: CameraViewModel,
     onFinish: () -> Unit,
-    navigateToGallery: () -> Unit,
-    navigateToVideo: () -> Unit
+    navigateToGallery: () -> Unit
 ) {
     val storageUtil = StorageUtil()
     val coroutineScope = rememberCoroutineScope()
@@ -141,93 +143,94 @@ fun CameraPreview(
             .fillMaxSize()
             .padding(10.dp)
     ) {
-        Column(Modifier.fillMaxWidth()) {
-            Spacer(
-                modifier = Modifier
-                    .statusBarsPadding()
-                    .fillMaxWidth()
-            )
-
-            if (activated == true && currentCameraMode == CameraController.PHOTO) {
-                var latencyText = stringResource(R.string.latency_from_camera_inactive_to_ready)
-                var latencyResult =
-                    if (startCameraUsedTime!! > 0) "$latencyText $startCameraUsedTime ms"
-                    else "$latencyText -"
-                Text(
-                    text = latencyResult,
-                    color = Color(0xffffffff),
-                    fontSize = 14.sp,
-                    modifier = Modifier.align(Alignment.Start)
-                )
-                latencyText = stringResource(R.string.latency_from_take_photo_to_image_capture_started)
-                latencyResult =
-                    if (imageCaptureStartedUsedTime!! > 0) "$latencyText $imageCaptureStartedUsedTime ms"
-                    else "$latencyText -"
-                Text(
-                    text = latencyResult,
-                    color = Color(0xffffffff),
-                    fontSize = 14.sp,
-                    modifier = Modifier.align(Alignment.Start)
-                )
-                latencyText = stringResource(R.string.latency_from_take_photo_to_image_captured)
-                latencyResult =
-                    if (imageCapturedUsedTime!! > 0 && !isOnImageSavedCallback) "$latencyText $imageCapturedUsedTime ms"
-                    else "$latencyText -"
-                Text(
-                    text = latencyResult,
-                    color = Color(0xffffffff),
-                    fontSize = 14.sp,
-                    modifier = Modifier.align(Alignment.Start)
-                )
-                latencyText = stringResource(R.string.latency_from_image_in_ram_to_jpeg_encoded)
-                latencyResult =
-                    if (jpegEncodedUsedTime!! > 0) "$latencyText $jpegEncodedUsedTime ms"
-                    else "$latencyText -"
-                Text(
-                    text = latencyResult,
-                    color = Color(0xffffffff),
-                    fontSize = 14.sp,
-                    modifier = Modifier.align(Alignment.Start)
-                )
-                latencyText = stringResource(R.string.latency_from_jpeg_encoded_to_jpeg_file_saved)
-                latencyResult =
-                    if (jpegSavedUsedTime!! > 0) "$latencyText $jpegSavedUsedTime ms"
-                    else "$latencyText -"
-                Text(
-                    text = latencyResult,
-                    color = Color(0xffffffff),
-                    fontSize = 14.sp,
-                    modifier = Modifier.align(Alignment.Start)
-                )
-                latencyText = stringResource(R.string.latency_from_take_photo_to_jpeg_file_saved)
-                latencyResult =
-                    if (takePhotoUsedTime!! > 0) "$latencyText $takePhotoUsedTime ms"
-                    else "$latencyText -"
-                Text(
-                    text = latencyResult,
-                    color = Color(0xffffffff),
-                    fontSize = 14.sp,
-                    modifier = Modifier.align(Alignment.Start)
-                )
-                latencyText = stringResource(R.string.latency_from_start_camera_to_jpeg_file_saved)
-                latencyResult =
-                    if (isTakePhotoCold && startToSavedUsedTime!! > 0)
-                        "$latencyText $startToSavedUsedTime ms"
-                    else "$latencyText -"
-                Text(
-                    text = latencyResult,
-                    color = Color(0xffffffff),
-                    fontSize = 14.sp,
-                    modifier = Modifier.align(Alignment.Start)
-                )
-            }
-        }
+//        Column(Modifier.fillMaxWidth()) {
+//            Spacer(
+//                modifier = Modifier
+//                    .statusBarsPadding()
+//                    .fillMaxWidth()
+//            )
+//
+//            if (activated == true && currentCameraMode == CameraController.PHOTO) {
+//                var latencyText = stringResource(R.string.latency_from_camera_inactive_to_ready)
+//                var latencyResult =
+//                    if (startCameraUsedTime!! > 0) "$latencyText $startCameraUsedTime ms"
+//                    else "$latencyText -"
+//                Text(
+//                    text = latencyResult,
+//                    color = Color(0xffffffff),
+//                    fontSize = 14.sp,
+//                    modifier = Modifier.align(Alignment.Start)
+//                )
+//                latencyText = stringResource(R.string.latency_from_take_photo_to_image_capture_started)
+//                latencyResult =
+//                    if (imageCaptureStartedUsedTime!! > 0) "$latencyText $imageCaptureStartedUsedTime ms"
+//                    else "$latencyText -"
+//                Text(
+//                    text = latencyResult,
+//                    color = Color(0xffffffff),
+//                    fontSize = 14.sp,
+//                    modifier = Modifier.align(Alignment.Start)
+//                )
+//                latencyText = stringResource(R.string.latency_from_take_photo_to_image_captured)
+//                latencyResult =
+//                    if (imageCapturedUsedTime!! > 0 && !isOnImageSavedCallback) "$latencyText $imageCapturedUsedTime ms"
+//                    else "$latencyText -"
+//                Text(
+//                    text = latencyResult,
+//                    color = Color(0xffffffff),
+//                    fontSize = 14.sp,
+//                    modifier = Modifier.align(Alignment.Start)
+//                )
+//                latencyText = stringResource(R.string.latency_from_image_in_ram_to_jpeg_encoded)
+//                latencyResult =
+//                    if (jpegEncodedUsedTime!! > 0) "$latencyText $jpegEncodedUsedTime ms"
+//                    else "$latencyText -"
+//                Text(
+//                    text = latencyResult,
+//                    color = Color(0xffffffff),
+//                    fontSize = 14.sp,
+//                    modifier = Modifier.align(Alignment.Start)
+//                )
+//                latencyText = stringResource(R.string.latency_from_jpeg_encoded_to_jpeg_file_saved)
+//                latencyResult =
+//                    if (jpegSavedUsedTime!! > 0) "$latencyText $jpegSavedUsedTime ms"
+//                    else "$latencyText -"
+//                Text(
+//                    text = latencyResult,
+//                    color = Color(0xffffffff),
+//                    fontSize = 14.sp,
+//                    modifier = Modifier.align(Alignment.Start)
+//                )
+//                latencyText = stringResource(R.string.latency_from_take_photo_to_jpeg_file_saved)
+//                latencyResult =
+//                    if (takePhotoUsedTime!! > 0) "$latencyText $takePhotoUsedTime ms"
+//                    else "$latencyText -"
+//                Text(
+//                    text = latencyResult,
+//                    color = Color(0xffffffff),
+//                    fontSize = 14.sp,
+//                    modifier = Modifier.align(Alignment.Start)
+//                )
+//                latencyText = stringResource(R.string.latency_from_start_camera_to_jpeg_file_saved)
+//                latencyResult =
+//                    if (isTakePhotoCold && startToSavedUsedTime!! > 0)
+//                        "$latencyText $startToSavedUsedTime ms"
+//                    else "$latencyText -"
+//                Text(
+//                    text = latencyResult,
+//                    color = Color(0xffffffff),
+//                    fontSize = 14.sp,
+//                    modifier = Modifier.align(Alignment.Start)
+//                )
+//            }
+//        }
 
         Column(
-            verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.Bottom),
+            verticalArrangement = Arrangement.spacedBy((-10).dp, Alignment.Top),
             modifier = Modifier
                 .fillMaxSize()
                 .navigationBarsPadding()
+                .statusBarsPadding()
                 .align(Alignment.BottomCenter)
         ) {
             // thumbnail layout
@@ -255,6 +258,7 @@ fun CameraPreview(
                 Row {
                     modeOptions.forEachIndexed { index, option ->
                         RadioButton(selected = (currentCameraMode == index),
+                            modifier = Modifier.scale(0.5f),
                             onClick = {
                                 viewModel.setCameraMode(option)
                             }
@@ -270,7 +274,7 @@ fun CameraPreview(
                                 else -> TODO()
                             },
                             color = Color(0xffffffff),
-                            fontSize = 18.sp,
+                            fontSize = 10.sp,
                             modifier = Modifier
                                 .align(Alignment.CenterVertically)
                                 .clickable(onClick = {
@@ -286,6 +290,7 @@ fun CameraPreview(
                 Row {
                     lensOptions.forEachIndexed { index, option ->
                         RadioButton(selected = (lensSelectedOption == index),
+                            modifier = Modifier.scale(0.5f),
                             onClick = {
                                 lensSelectedOption = index
                                 viewModel.setLens(option)
@@ -302,7 +307,7 @@ fun CameraPreview(
                                 else -> TODO()
                             },
                             color = Color(0xffffffff),
-                            fontSize = 18.sp,
+                            fontSize = 10.sp,
                             modifier = Modifier
                                 .align(Alignment.CenterVertically)
                                 .clickable(onClick = {
@@ -323,14 +328,18 @@ fun CameraPreview(
                     Text(
                         text = stringResource(R.string.switch_enable_preview),
                         color = Color(0xffffffff),
-                        fontSize = 18.sp,
+                        fontSize = 10.sp,
                         modifier = Modifier
                             .align(Alignment.CenterStart)
+                            .padding(20.dp, 0.dp, 0.dp, 0.dp)
                     )
                     Switch(checked = checked, onCheckedChange = {
                         checked = it
                         viewModel.setPreviewEnable(it)
-                    }, Modifier.align(Alignment.CenterEnd))
+                    },
+                        Modifier
+                            .align(Alignment.CenterEnd)
+                            .scale(0.5f))
                 }
             }
 
@@ -341,20 +350,23 @@ fun CameraPreview(
             ) {
                 OutlinedButton(
                     enabled = isCameraButtonEnabled,
-                    modifier = Modifier.align(Alignment.CenterStart),
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .scale(0.5f),
                     onClick = {
                         isCameraButtonEnabled = !isCameraButtonEnabled
                         if (activated == true) {
                             viewModel.stopCameraPreview()
+                            viewModel.stopRecording()
                         } else {
-                            viewModel.startCameraPreview(owner)
+                            viewModel.startCameraPreview(context, owner)
                         }
                     }
                 ) {
                     Text(
                         text = if (activated == true) stringResource(R.string.button_stop_camera)
                         else stringResource(R.string.button_start_camera),
-                        fontSize = 18.sp,
+                        fontSize = 14.sp,
                         color = if (isCameraButtonEnabled) Color.White else Color.Gray
                     )
                     if (isCameraStateChanged == true) {
@@ -364,7 +376,9 @@ fun CameraPreview(
 
                 if (activated != true) {
                     OutlinedButton(
-                        modifier = Modifier.align(Alignment.CenterEnd),
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .scale(0.5f),
                         onClick = {
                             val (available, percent) = storageUtil.isStorageAvailable()
                             if (available) {
@@ -398,7 +412,7 @@ fun CameraPreview(
                     ) {
                         Text(
                             text = stringResource(R.string.button_check_storage),
-                            fontSize = 18.sp,
+                            fontSize = 14.sp,
                             color = Color.White
                         )
 
@@ -415,7 +429,9 @@ fun CameraPreview(
                     if (activated == true) {
                         OutlinedButton(
                             enabled = isCaptureButtonEnabled,
-                            modifier = Modifier.align(Alignment.CenterStart),
+                            modifier = Modifier
+                                .align(Alignment.CenterStart)
+                                .scale(0.5f),
                             onClick = {
                                 val (available, percent) = storageUtil.isStorageAvailable()
                                 if (available) {
@@ -445,7 +461,7 @@ fun CameraPreview(
                         ) {
                             Text(
                                 text = stringResource(R.string.button_take_photo_warm1),
-                                fontSize = 18.sp,
+                                fontSize = 14.sp,
                                 color = if (isCaptureButtonEnabled) Color.White else Color.Gray
                             )
                             if (isJpegSaved == true) {
@@ -455,14 +471,16 @@ fun CameraPreview(
 
                         OutlinedButton(
                             enabled = isCaptureButtonEnabled,
-                            modifier = Modifier.align(Alignment.CenterEnd),
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .scale(0.5f),
                             onClick = {
                                 val (available, percent) = storageUtil.isStorageAvailable()
                                 if (available) {
                                     isTakePhotoCold = false
                                     isOnImageSavedCallback = true
                                     isCaptureButtonEnabled = !isCaptureButtonEnabled
-                                    viewModel.coldStartAndTakePhoto(context, owner, true)
+                                    viewModel.capturePhoto(context, owner, true)
                                 } else {
                                     coroutineScope.launch {
                                         val images = storageUtil.getOldestImages(context)
@@ -485,7 +503,7 @@ fun CameraPreview(
                         ) {
                             Text(
                                 text = stringResource(R.string.button_take_photo_warm2),
-                                fontSize = 18.sp,
+                                fontSize = 14.sp,
                                 color = if (isCaptureButtonEnabled) Color.White else Color.Gray
                             )
                             if (isJpegSaved == true) {
@@ -495,7 +513,9 @@ fun CameraPreview(
                     } else {
                         OutlinedButton(
                             enabled = isCaptureButtonEnabled,
-                            modifier = Modifier.align(Alignment.CenterStart),
+                            modifier = Modifier
+                                .align(Alignment.CenterStart)
+                                .scale(0.5f),
                             onClick = {
                                 val (available, percent) = storageUtil.isStorageAvailable()
                                 if (available) {
@@ -525,7 +545,7 @@ fun CameraPreview(
                         ) {
                             Text(
                                 text = stringResource(R.string.button_take_photo_cold1),
-                                fontSize = 18.sp,
+                                fontSize = 14.sp,
                                 color = Color.White
                             )
                             if (isJpegSaved == true) {
@@ -535,7 +555,9 @@ fun CameraPreview(
 
                         OutlinedButton(
                             enabled = isCaptureButtonEnabled,
-                            modifier = Modifier.align(Alignment.CenterEnd),
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .scale(0.5f),
                             onClick = {
                                 val (available, percent) = storageUtil.isStorageAvailable()
                                 if (available) {
@@ -565,7 +587,7 @@ fun CameraPreview(
                         ) {
                             Text(
                                 text = stringResource(R.string.button_take_photo_cold2),
-                                fontSize = 18.sp,
+                                fontSize = 14.sp,
                                 color = Color.White
                             )
                             if (isJpegSaved == true) {
@@ -576,11 +598,16 @@ fun CameraPreview(
                 } else {
                     if (activated == true) {
                         OutlinedButton(
-                            modifier = Modifier.align(Alignment.CenterStart),
+                            enabled = isCaptureButtonEnabled,
+                            modifier = Modifier
+                                .align(Alignment.CenterStart)
+                                .scale(0.5f),
                             onClick = {
                                 if (!isRecording) {
+                                    isCaptureButtonEnabled = !isCaptureButtonEnabled
                                     viewModel.startRecording(context, {
                                         isRecording = true
+                                        isCaptureButtonEnabled = true
                                     }, {
 
                                     })
@@ -598,8 +625,8 @@ fun CameraPreview(
                                     stringResource(
                                         R.string.button_start_record)
                                 },
-                                fontSize = 18.sp,
-                                color = Color.White
+                                fontSize = 14.sp,
+                                color = if (isCameraButtonEnabled) Color.White else Color.Gray
                             )
                         }
                     }

@@ -2,6 +2,7 @@ package com.example.cameratest.viewmodel
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.util.Log
 import androidx.camera.view.PreviewView
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LiveData
@@ -60,6 +61,10 @@ class CameraViewModel : ViewModel() {
     private var _currentCameraMode = MutableLiveData<Int>(0)
     var currentCameraMode = _currentCameraMode
 
+    fun updateJpegSavedStatus(isSaved: Boolean) {
+        isJpegSaved.value = isSaved
+    }
+
     fun setCameraInactiveTime(time: Long) {
         _cameraInactiveTime.value = time
         isCameraStateChanged.postValue(false)
@@ -107,7 +112,7 @@ class CameraViewModel : ViewModel() {
     }
 
     fun onImageCaptured() {
-        _imageCapturedUsedTime.value = _imageCapturedTime.value!! - _startTakePhotoTime.value!!
+        _imageCapturedUsedTime.value = _imageCapturedTime.value!! - _imageCaptureStartedTime.value!!
     }
 
     fun onJpegEncoded() {
@@ -133,8 +138,8 @@ class CameraViewModel : ViewModel() {
         _images.postValue(imageList)
     }
 
-    fun startCameraPreview(owner: LifecycleOwner) {
-        cameraController.startCameraPreview(owner)
+    fun startCameraPreview(context: Context, owner: LifecycleOwner) {
+        cameraController.startCameraPreview(context, owner)
     }
 
     fun stopCameraPreview() {
@@ -158,7 +163,7 @@ class CameraViewModel : ViewModel() {
         context: Context,
         owner: LifecycleOwner,
         isOnImageSavedCallback: Boolean) {
-        cameraController.capturePhoto(context, owner, isOnImageSavedCallback) { bitmap, byteArray ->
+        cameraController.capturePhoto(context, owner, isOnImageSavedCallback, false) { bitmap, byteArray ->
             _imageBitmap.value = bitmap
         }
     }

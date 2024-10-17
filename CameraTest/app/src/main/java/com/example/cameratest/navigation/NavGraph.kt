@@ -40,8 +40,6 @@ private fun addMainView(
         CameraTestTheme {
             CameraPreview(context, owner, viewModel, onFinish, {
                 navController.navigate(NavRoute.Gallery.path)
-            }, {
-                navController.navigate(NavRoute.Video.path)
             })
         }
     }

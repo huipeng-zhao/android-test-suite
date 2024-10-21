@@ -34,7 +34,7 @@ class MainActivity : ComponentActivity() {
         viewModel.stopCameraPreview()
     }
 
-    fun getOrientationService(): OrientationUtil {
+    fun getOrientationUtil(): OrientationUtil {
         return mOrientationUtil
     }
 }

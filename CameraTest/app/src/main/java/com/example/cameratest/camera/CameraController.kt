@@ -301,18 +301,10 @@ class CameraController(private val viewModel: CameraViewModel) {
 //                    viewModel.setImageCapturedTime(System.currentTimeMillis())
 //                    viewModel.onImageCaptured()
                     owner.lifecycleScope.launch {
-                        var rotationDegrees =
-                            when ((context as MainActivity).getOrientationService().layoutOrientation) {
-                                OrientationUtil.LayoutOrientation.Portrait -> 90f
-                                OrientationUtil.LayoutOrientation.Landscape -> 0f
-                                OrientationUtil.LayoutOrientation.ReversePortrait -> 270f
-                                OrientationUtil.LayoutOrientation.ReverseLandscape -> 180f
-                                else -> 90f
-                            }
                         //encoded jpeg
                         val bitmap = processImageFromBitmap(
                             imageProxyToBitmap(owner, image),
-                            rotationDegrees
+                            getRotationDegrees(context, image)
                         )
                         jpegEncodedTime = System.currentTimeMillis()
 //                        viewModel.setJpegEncodedTime(System.currentTimeMillis())
@@ -710,18 +702,10 @@ class CameraController(private val viewModel: CameraViewModel) {
                             Log.d(TAG, "In ten seconds, $captureCount photos were captured.")
                         }
                         owner.lifecycleScope.launch {
-                            val rotationDegrees =
-                                when ((context as MainActivity).getOrientationService().layoutOrientation) {
-                                    OrientationUtil.LayoutOrientation.Portrait -> 90f
-                                    OrientationUtil.LayoutOrientation.Landscape -> 0f
-                                    OrientationUtil.LayoutOrientation.ReversePortrait -> 270f
-                                    OrientationUtil.LayoutOrientation.ReverseLandscape -> 180f
-                                    else -> 90f
-                                }
                             //encoded jpeg
                             val bitmap = processImageFromBitmap(
                                 imageProxyToBitmap(owner, image),
-                                rotationDegrees
+                                getRotationDegrees(context, image)
                             )
                             jpegEncodedTime = System.currentTimeMillis()
                             jpegEncodedTimeList.add(jpegEncodedTime)
@@ -769,32 +753,58 @@ class CameraController(private val viewModel: CameraViewModel) {
                     put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DCIM)
                 }).build()
     }
-}
 
-fun processImageFromBitmap(bitmap: Bitmap, rotationDegrees: Float): Bitmap {
-    val originalWidth = bitmap.width
-    val originalHeight = bitmap.height
-    val aspectRatio: Float = originalWidth.toFloat() / originalHeight.toFloat()
-    val (targetWidth, targetHeight) = if (originalWidth < originalHeight) {
-        Pair(SHORT_EDGE, (SHORT_EDGE / aspectRatio).toInt())
-    } else {
-        Pair((SHORT_EDGE * aspectRatio).toInt(), SHORT_EDGE)
+    private fun getRotationDegrees(context: Context, image: ImageProxy) : Float{
+        val rotationDegrees: Float =
+            when ((context as MainActivity).getOrientationUtil().layoutOrientation) {
+                OrientationUtil.LayoutOrientation.Portrait ->
+                    image.imageInfo.rotationDegrees.toFloat()
+
+                OrientationUtil.LayoutOrientation.Landscape ->
+                    if (lensFacing == CameraSelector.LENS_FACING_BACK)
+                        image.imageInfo.rotationDegrees + 270f
+                    else
+                        image.imageInfo.rotationDegrees + 90f
+
+                OrientationUtil.LayoutOrientation.ReversePortrait ->
+                    image.imageInfo.rotationDegrees + 180f
+
+                OrientationUtil.LayoutOrientation.ReverseLandscape ->
+                    if (lensFacing == CameraSelector.LENS_FACING_BACK)
+                        image.imageInfo.rotationDegrees + 90f
+                    else
+                        image.imageInfo.rotationDegrees + 270f
+
+                else ->
+                    image.imageInfo.rotationDegrees.toFloat()
+            }
+        return rotationDegrees
     }
 
-    val scaledBitmap = Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
+    fun processImageFromBitmap(bitmap: Bitmap, rotationDegrees: Float): Bitmap {
+        val originalWidth = bitmap.width
+        val originalHeight = bitmap.height
+        val aspectRatio: Float = originalWidth.toFloat() / originalHeight.toFloat()
+        val (targetWidth, targetHeight) = if (originalWidth < originalHeight) {
+            Pair(SHORT_EDGE, (SHORT_EDGE / aspectRatio).toInt())
+        } else {
+            Pair((SHORT_EDGE * aspectRatio).toInt(), SHORT_EDGE)
+        }
 
-    val matrix = Matrix().apply {
-        postRotate(rotationDegrees)
+        val scaledBitmap = Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
+
+        val matrix = Matrix().apply {
+            postRotate(rotationDegrees)
+        }
+        val rotatedBitmap = Bitmap.createBitmap(
+            scaledBitmap,
+            0,
+            0,
+            scaledBitmap.width,
+            scaledBitmap.height,
+            matrix,
+            true
+        )
+        return rotatedBitmap
     }
-    val rotatedBitmap = Bitmap.createBitmap(
-        scaledBitmap,
-        0,
-        0,
-        scaledBitmap.width,
-        scaledBitmap.height,
-        matrix,
-        true
-    )
-
-    return rotatedBitmap
 }

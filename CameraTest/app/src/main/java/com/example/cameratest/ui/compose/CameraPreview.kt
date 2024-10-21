@@ -85,7 +85,10 @@ fun CameraPreview(
     var lensSelectedOption by remember { mutableIntStateOf(0) }
     var isTakePhotoCold by remember { mutableStateOf(false) }
     var isRecording by remember { mutableStateOf(false) }
+    var isButton1Bursting by remember { mutableStateOf(false) }
+    var isButton2Bursting by remember { mutableStateOf(false) }
     var isOnImageSavedCallback by remember { mutableStateOf(false) }
+    var isManualStop by remember { mutableStateOf(false) }
 
     val lensOptions = viewModel.getAvailableCamera(context)
     val modeOptions = viewModel.getCameraModeList()
@@ -97,6 +100,7 @@ fun CameraPreview(
     val jpegSavedUsedTime by viewModel.jpegSavedUsedTime.observeAsState()
     val takePhotoUsedTime by viewModel.takePhotoUsedTime.observeAsState()
     val startToSavedUsedTime by viewModel.startToSavedUsedTime.observeAsState()
+    val burstCount by viewModel.burstCount.observeAsState()
     val activated by viewModel.isCameraActivated.observeAsState()
     val isCameraStateChanged by viewModel.isCameraStateChanged.observeAsState()
     val isJpegSaved by viewModel.isJpegSaved.observeAsState()
@@ -233,6 +237,21 @@ fun CameraPreview(
                 .statusBarsPadding()
                 .align(Alignment.BottomCenter)
         ) {
+            //burst count text
+            if (activated == true && !isButton1Bursting && !isButton2Bursting && burstCount!! > 0) {
+                val latencyText = stringResource(R.string.latency_burst_times_in_ten_senconds)
+                val latencyText1 = stringResource(R.string.latency_burst_times)
+                val latencyResult =
+                    if (isManualStop) "$burstCount $latencyText1" else "$burstCount $latencyText"
+
+                Text(
+                    text = latencyResult,
+                    color = Color(0xffffffff),
+                    fontSize = 12.sp,
+                    modifier = Modifier.align(Alignment.Start)
+                )
+            }
+
             // thumbnail layout
             if (activated == true) {
                 Box(
@@ -333,13 +352,15 @@ fun CameraPreview(
                             .align(Alignment.CenterStart)
                             .padding(20.dp, 0.dp, 0.dp, 0.dp)
                     )
-                    Switch(checked = checked, onCheckedChange = {
-                        checked = it
-                        viewModel.setPreviewEnable(it)
-                    },
+                    Switch(
+                        checked = checked, onCheckedChange = {
+                            checked = it
+                            viewModel.setPreviewEnable(it)
+                        },
                         Modifier
                             .align(Alignment.CenterEnd)
-                            .scale(0.5f))
+                            .scale(0.5f)
+                    )
                 }
             }
 
@@ -623,7 +644,8 @@ fun CameraPreview(
                                     stringResource(R.string.button_stop_record)
                                 } else {
                                     stringResource(
-                                        R.string.button_start_record)
+                                        R.string.button_start_record
+                                    )
                                 },
                                 fontSize = 14.sp,
                                 color = if (isCameraButtonEnabled) Color.White else Color.Gray
@@ -632,6 +654,93 @@ fun CameraPreview(
                     }
                 }
 
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(),
+            ) {
+                if (currentCameraMode == CameraController.PHOTO && activated == true) {
+                    if (isButton2Bursting != true) {
+                        OutlinedButton(
+                            modifier = Modifier
+                                .align(Alignment.CenterStart)
+                                .scale(0.5f),
+                            onClick = {
+                                isTakePhotoCold = false
+                                viewModel.setBurstCount(0)
+                                if (isButton1Bursting) {
+                                    isButton1Bursting = false
+                                    isCaptureButtonEnabled = true
+                                    viewModel.stopBurstCapture()
+                                } else {
+                                    isButton1Bursting = true
+                                    isCaptureButtonEnabled = false
+                                    viewModel.startBurstCapture(
+                                        context,
+                                        owner,
+                                        false
+                                    ) { burstCount, isManualStopValue ->
+                                        viewModel.setBurstCount(burstCount)
+                                        isManualStop = isManualStopValue
+                                        isButton1Bursting = false
+                                        isCaptureButtonEnabled = true
+                                    }
+                                }
+                            }
+                        ) {
+                            Text(
+                                text = if (isButton1Bursting) stringResource(R.string.button_stop_burst)
+                                else stringResource(R.string.button_start_burst1),
+                                fontSize = 14.sp,
+                                color = if (isCameraButtonEnabled) Color.White else Color.Gray
+                            )
+                            if (isCameraStateChanged == true) {
+                                isCameraButtonEnabled = true
+                            }
+                        }
+                    }
+
+                    if (isButton1Bursting != true) {
+                        OutlinedButton(
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .scale(0.5f),
+                            onClick = {
+                                isTakePhotoCold = false
+                                viewModel.setBurstCount(0)
+                                if (isButton2Bursting) {
+                                    isButton2Bursting = false
+                                    isCaptureButtonEnabled = true
+                                    viewModel.stopBurstCapture()
+                                } else {
+                                    isButton2Bursting = true
+                                    isCaptureButtonEnabled = false
+                                    viewModel.startBurstCapture(
+                                        context,
+                                        owner,
+                                        true
+                                    ) { burstCount, isManualStopValue ->
+                                        viewModel.setBurstCount(burstCount)
+                                        isManualStop = isManualStopValue
+                                        isButton2Bursting = false
+                                        isCaptureButtonEnabled = true
+                                    }
+                                }
+                            }
+                        ) {
+                            Text(
+                                text = if (isButton2Bursting) stringResource(R.string.button_stop_burst)
+                                else stringResource(R.string.button_start_burst2),
+                                fontSize = 14.sp,
+                                color = if (isCameraButtonEnabled) Color.White else Color.Gray
+                            )
+                            if (isCameraStateChanged == true) {
+                                isCameraButtonEnabled = true
+                            }
+                        }
+                    }
+                }
             }
         }
     }

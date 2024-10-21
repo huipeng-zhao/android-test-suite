@@ -14,7 +14,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 
-public class OrientationService implements LifecycleObserver {
+public class OrientationUtil implements LifecycleObserver {
 
     public interface OrientationDegreeChangedListener {
         @MainThread
@@ -56,7 +56,7 @@ public class OrientationService implements LifecycleObserver {
 
     private int mLastDeterminedOrientationDegree = OrientationEventListener.ORIENTATION_UNKNOWN;
 
-    public OrientationService(ComponentActivity activity) {
+    public OrientationUtil(ComponentActivity activity) {
         mActivity = activity;
         mLifecycle = activity.getLifecycle();
         mLifecycle.addObserver(this);
@@ -111,7 +111,7 @@ public class OrientationService implements LifecycleObserver {
         if (in(orientation, 90 - margin, 90 + margin)) {
             return LayoutOrientation.Portrait;
 
-        } else if (in(orientation, 90 + margin, 270 - margin)){
+        } else if (in(orientation, 90 + margin, 270 - margin)) {
             return LayoutOrientation.ReverseLandscape;
 
         } else if (in(orientation, 270 - margin, 270 + margin)) {
@@ -168,7 +168,7 @@ public class OrientationService implements LifecycleObserver {
     public int getOrientationDegree(LayoutOrientation fixed) {
 
         int degree;
-        switch(fixed) {
+        switch (fixed) {
             case Unknown:
                 // fall-through.
             case Landscape:

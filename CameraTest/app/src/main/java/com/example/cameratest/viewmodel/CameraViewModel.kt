@@ -46,6 +46,9 @@ class CameraViewModel : ViewModel() {
     private var _startToSavedUsedTime = MutableLiveData<Long>(0)
     val startToSavedUsedTime = _startToSavedUsedTime
 
+    private var _burstCount = MutableLiveData<Int>(0)
+    val burstCount = _burstCount
+
     private var _isCameraActivated = MutableLiveData<Boolean>(false)
     var isCameraActivated = _isCameraActivated
 
@@ -108,7 +111,8 @@ class CameraViewModel : ViewModel() {
     }
 
     fun onImageCaptureStarted() {
-        _imageCaptureStartedUsedTime.value = _imageCaptureStartedTime.value!! - _startTakePhotoTime.value!!
+        _imageCaptureStartedUsedTime.value =
+            _imageCaptureStartedTime.value!! - _startTakePhotoTime.value!!
     }
 
     fun onImageCaptured() {
@@ -125,12 +129,25 @@ class CameraViewModel : ViewModel() {
         _startToSavedUsedTime.value = _jpegSavedTime.value!! - _cameraInactiveTime.value!!
     }
 
-    fun generateThumbnail(context: Context, bitmap: Bitmap, onImageSaved: (Bitmap, ByteArray) -> Unit) {
+    fun setBurstCount(burstCount: Int) {
+        _burstCount.postValue(burstCount)
+    }
+
+    fun generateThumbnail(
+        context: Context,
+        bitmap: Bitmap,
+        onImageSaved: (Bitmap, ByteArray) -> Unit
+    ) {
         thumbnailUtil.generateThumbnail(context, bitmap, onImageSaved)
     }
 
-    suspend fun saveMediaToStorage(context: Context, bitmap: Bitmap, name: String) {
-        storageUtil.saveMediaToStorage(context, bitmap, name)
+    suspend fun saveMediaToStorage(
+        context: Context,
+        bitmap: Bitmap,
+        name: String,
+        isBurst: Boolean
+    ) {
+        storageUtil.saveMediaToStorage(context, bitmap, name, isBurst)
     }
 
     suspend fun loadImages(context: Context) {
@@ -162,8 +179,14 @@ class CameraViewModel : ViewModel() {
     fun capturePhoto(
         context: Context,
         owner: LifecycleOwner,
-        isOnImageSavedCallback: Boolean) {
-        cameraController.capturePhoto(context, owner, isOnImageSavedCallback, false) { bitmap, byteArray ->
+        isOnImageSavedCallback: Boolean
+    ) {
+        cameraController.capturePhoto(
+            context,
+            owner,
+            isOnImageSavedCallback,
+            false
+        ) { bitmap, byteArray ->
             _imageBitmap.value = bitmap
         }
     }
@@ -173,7 +196,11 @@ class CameraViewModel : ViewModel() {
         owner: LifecycleOwner,
         isOnImageSavedCallback: Boolean
     ) {
-        cameraController.coldStartAndTakePhoto(context, owner, isOnImageSavedCallback) { bitmap, byteArray ->
+        cameraController.coldStartAndTakePhoto(
+            context,
+            owner,
+            isOnImageSavedCallback
+        ) { bitmap, byteArray ->
             _imageBitmap.value = bitmap
         }
     }
@@ -191,14 +218,39 @@ class CameraViewModel : ViewModel() {
         cameraController.setCameraMode(mode)
     }
 
-    fun startRecording(context : Context, onStartSuccess : () -> Unit, onStartFail : () -> Unit) {
-        cameraController.startRecording(context, true, onStartSuccess, onStartFail) {
-                bitmap, byteArray -> _imageBitmap.value = bitmap
+    fun startRecording(context: Context, onStartSuccess: () -> Unit, onStartFail: () -> Unit) {
+        cameraController.startRecording(
+            context,
+            true,
+            onStartSuccess,
+            onStartFail
+        ) { bitmap, byteArray ->
+            _imageBitmap.value = bitmap
         }
     }
 
     fun stopRecording() {
         cameraController.stopRecording()
+    }
+
+    fun startBurstCapture(
+        context: Context,
+        owner: LifecycleOwner,
+        isOnImageSavedCallback: Boolean,
+        isBurstFinish: (burstCount: Int, isManualStop: Boolean) -> Unit
+    ) {
+        cameraController.startBurstCapture(
+            context,
+            owner,
+            isOnImageSavedCallback,
+            isBurstFinish
+        ) { bitmap, byteArray ->
+            _imageBitmap.value = bitmap
+        }
+    }
+
+    fun stopBurstCapture() {
+        cameraController.stopBurstCapture()
     }
 
     private fun clearTime() {

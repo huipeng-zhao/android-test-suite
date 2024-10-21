@@ -8,7 +8,11 @@ import java.io.FileOutputStream
 
 class ThumbnailUtil {
 
-    fun generateThumbnail(context: Context, bitmap: Bitmap, onImageSaved: (Bitmap, ByteArray) -> Unit) {
+    fun generateThumbnail(
+        context: Context,
+        bitmap: Bitmap,
+        onImageSaved: (Bitmap, ByteArray) -> Unit
+    ) {
         val thumbnail = Bitmap.createScaledBitmap(
             bitmap, (bitmap.width * 0.1).toInt(),
             (bitmap.height * 0.1).toInt(), true

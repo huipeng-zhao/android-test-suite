@@ -27,7 +27,12 @@ import java.util.concurrent.TimeUnit
 
 class StorageUtil {
     private val TAG = "StorageUtil"
-    suspend fun saveMediaToStorage(context: Context, bitmap: Bitmap, name: String) {
+    suspend fun saveMediaToStorage(
+        context: Context,
+        bitmap: Bitmap,
+        name: String,
+        isBurst: Boolean
+    ) {
         withContext(IO) {
             val filename = "$name.jpg"
             var fos: OutputStream? = null
@@ -61,7 +66,7 @@ class StorageUtil {
                 val success = async(IO) {
                     bitmap.compress(Bitmap.CompressFormat.JPEG, 100, it)
                 }
-                if (success.await()) {
+                if (success.await() && !isBurst) {
                     withContext(Dispatchers.Main) {
                         Toast.makeText(context, "Saved Successfully", Toast.LENGTH_SHORT)
                             .show()
@@ -116,7 +121,8 @@ class StorageUtil {
                     var bitmap: Bitmap?
                     if (displayName.endsWith(".mp4")) {
                         val pfd: ParcelFileDescriptor? = context.contentResolver.openFileDescriptor(
-                            contentUri, "r")
+                            contentUri, "r"
+                        )
                         bitmap = createVideoThumbnailBitmap(pfd?.fileDescriptor)
                     } else {
                         bitmap = getBitmapFromUri(contentUri, context)
@@ -149,7 +155,7 @@ class StorageUtil {
         }
     }
 
-    suspend fun performDeleteImage(context: Context, id:Long, uri: Uri) {
+    suspend fun performDeleteImage(context: Context, id: Long, uri: Uri) {
         withContext(Dispatchers.IO) {
             try {
                 context.contentResolver.delete(
@@ -186,7 +192,8 @@ class StorageUtil {
                     while (cursor.moveToNext() && oldestImages.size < count) {
                         val id = cursor.getLong(idColumnIndex)
                         val contentUri = ContentUris.withAppendedId(
-                            MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
+                            MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id
+                        )
                         oldestImages.add(id to contentUri)
                     }
                 }
@@ -255,7 +262,8 @@ class StorageUtil {
     }
 
     fun getTotalStorageSize(): Long {
-        val totalSpace = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM).totalSpace
+        val totalSpace =
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM).totalSpace
         //MB
         return totalSpace / 1000 / 1000
     }

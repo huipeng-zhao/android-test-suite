@@ -42,9 +42,11 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun GalleryView(context: Context,
-                viewModel: CameraViewModel,
-                back: () -> Unit) {
+fun GalleryView(
+    context: Context,
+    viewModel: CameraViewModel,
+    back: () -> Unit
+) {
     val coroutineScope = rememberCoroutineScope()
     val storageUtil = StorageUtil()
     val listData by viewModel.images.observeAsState()
@@ -65,9 +67,11 @@ fun GalleryView(context: Context,
     ) {
         Image(
             painter = painterResource(id = R.drawable.ic_back), contentDescription = null,
-            modifier = Modifier.padding(5.dp,15.dp).clickable {
-                back()
-            }
+            modifier = Modifier
+                .padding(5.dp, 15.dp)
+                .clickable {
+                    back()
+                }
         )
 
         Column(

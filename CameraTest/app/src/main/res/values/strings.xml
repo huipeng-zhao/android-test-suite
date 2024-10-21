@@ -12,6 +12,9 @@
     <string name="button_take_photo_cold2">Capture cold2</string>
     <string name="button_take_photo_warm1">Capture warm1</string>
     <string name="button_take_photo_warm2">Capture warm2</string>
+    <string name="button_start_burst1">Start burst1</string>
+    <string name="button_start_burst2">Start burst2</string>
+    <string name="button_stop_burst">Stop burst</string>
     <string name="button_check_storage">Check storage</string>
     <string name="select_file_name">File name: </string>
     <string name="dialog_title_text_delete">Delete?</string>
@@ -27,4 +30,6 @@
     <string name="latency_from_jpeg_encoded_to_jpeg_file_saved">jpeg encoded -> jpeg file saved</string>
     <string name="latency_from_take_photo_to_jpeg_file_saved">take photo begin -> jpeg file saved</string>
     <string name="latency_from_start_camera_to_jpeg_file_saved">cold start camera -> jpeg file saved</string>
+    <string name="latency_burst_times_in_ten_senconds">image captured in 10s</string>
+    <string name="latency_burst_times">image captured</string>
 </resources>

@@ -13,11 +13,13 @@ import com.example.cameratest.ui.theme.CameraTestTheme
 import com.example.cameratest.viewmodel.CameraViewModel
 
 @Composable
-fun NavGraph(navController: NavHostController,
-             context: Context,
-             owner: LifecycleOwner,
-             viewModel: CameraViewModel,
-             onFinish: () -> Unit) {
+fun NavGraph(
+    navController: NavHostController,
+    context: Context,
+    owner: LifecycleOwner,
+    viewModel: CameraViewModel,
+    onFinish: () -> Unit
+) {
     NavHost(
         navController = navController,
         startDestination = NavRoute.Main.path
@@ -49,7 +51,8 @@ private fun addGalleryView(
     navController: NavHostController,
     navGraphBuilder: NavGraphBuilder,
     context: Context,
-    viewModel: CameraViewModel) {
+    viewModel: CameraViewModel
+) {
     navGraphBuilder.composable(route = NavRoute.Gallery.path) {
         GalleryView(context, viewModel) {
             navController.navigate(NavRoute.Main.path)

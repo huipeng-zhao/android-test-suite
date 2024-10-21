@@ -7,12 +7,13 @@ import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.compose.rememberNavController
 import com.example.cameratest.navigation.NavGraph
-import com.example.cameratest.utils.OrientationService
+import com.example.cameratest.utils.OrientationUtil
 import com.example.cameratest.viewmodel.CameraViewModel
 
 class MainActivity : ComponentActivity() {
     private lateinit var viewModel: CameraViewModel
-    private val mOrientationService: OrientationService = OrientationService(this)
+    private val mOrientationUtil: OrientationUtil =
+        OrientationUtil(this)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -33,7 +34,7 @@ class MainActivity : ComponentActivity() {
         viewModel.stopCameraPreview()
     }
 
-    fun getOrientationService(): OrientationService {
-        return mOrientationService
+    fun getOrientationService(): OrientationUtil {
+        return mOrientationUtil
     }
 }

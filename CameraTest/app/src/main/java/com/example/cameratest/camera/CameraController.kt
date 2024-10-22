@@ -113,9 +113,9 @@ class CameraController(private val viewModel: CameraViewModel) {
         if (hasBackCamera()) {
             cameraSelectorList.add(CameraSelector.LENS_FACING_BACK)
         }
-        if (hasFrontCamera()) {
-            cameraSelectorList.add(CameraSelector.LENS_FACING_FRONT)
-        }
+//        if (hasFrontCamera()) {
+//            cameraSelectorList.add(CameraSelector.LENS_FACING_FRONT)
+//        }
         return cameraSelectorList
     }
 

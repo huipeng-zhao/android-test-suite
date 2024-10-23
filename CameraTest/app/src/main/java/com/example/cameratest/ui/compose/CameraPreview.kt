@@ -126,20 +126,32 @@ fun CameraPreview(
         )
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
     ) {
         if (hasCamPermission) {
-            AndroidView(
-                modifier = Modifier.fillMaxSize(),
-                factory = {
-                    viewModel.getPreviewView(context)
-                }
-            )
-
+            if (lensOptions.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.no_camera_text),
+                    color = Color(0xffffffff),
+                    fontSize = 20.sp,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            } else {
+                AndroidView(
+                    modifier = Modifier.fillMaxSize(),
+                    factory = {
+                        viewModel.getPreviewView(context)
+                    }
+                )
+            }
         }
+    }
+
+    if (lensOptions.isEmpty()) {
+        return
     }
 
     Box(

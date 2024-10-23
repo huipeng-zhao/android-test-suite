@@ -7,6 +7,8 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraManager
 import android.net.Uri
 import android.os.Environment
 import android.os.Handler
@@ -110,23 +112,15 @@ class CameraController(private val viewModel: CameraViewModel) {
     fun getAvailableCamera(context: Context): List<Int> {
         cameraProvider = ProcessCameraProvider.getInstance(context).get()
         val cameraSelectorList = mutableListOf<Int>()
-        if (hasBackCamera()) {
-            cameraSelectorList.add(CameraSelector.LENS_FACING_BACK)
+        val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        for (cameraId in cameraManager.cameraIdList) {
+            val characteristics = cameraManager.getCameraCharacteristics(cameraId)
+            val lensFacing = characteristics.get(CameraCharacteristics.LENS_FACING)
+            if (lensFacing != null && !cameraSelectorList.contains(lensFacing)) {
+                cameraSelectorList.add(lensFacing)
+            }
         }
-//        if (hasFrontCamera()) {
-//            cameraSelectorList.add(CameraSelector.LENS_FACING_FRONT)
-//        }
         return cameraSelectorList
-    }
-
-    /** Returns true if the device has an available back camera. False otherwise */
-    private fun hasBackCamera(): Boolean {
-        return cameraProvider?.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA) ?: false
-    }
-
-    /** Returns true if the device has an available front camera. False otherwise */
-    private fun hasFrontCamera(): Boolean {
-        return cameraProvider?.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA) ?: false
     }
 
     fun setLens(lens: Int) {

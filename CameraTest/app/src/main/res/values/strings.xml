@@ -22,6 +22,7 @@
     <string name="dialog_dissmiss_text">No</string>
     <string name="camera_mode_photo_text">Photo</string>
     <string name="camera_mode_video_text">Video</string>
+    <string name="no_camera_text">No Camera</string>
 
     <string name="latency_from_camera_inactive_to_ready">camera cold start -> camera ready</string>
     <string name="latency_from_image_capture_started_to_image_captured">image capture started -> image captured</string>

@@ -242,7 +242,7 @@ fun CameraPreview(
 //        }
 
         Column(
-            verticalArrangement = Arrangement.spacedBy((-10).dp, Alignment.Top),
+            verticalArrangement = Arrangement.Top,
             modifier = Modifier
                 .fillMaxSize()
                 .navigationBarsPadding()
@@ -259,7 +259,7 @@ fun CameraPreview(
                 Text(
                     text = latencyResult,
                     color = Color(0xffffffff),
-                    fontSize = 12.sp,
+                    fontSize = 20.sp,
                     modifier = Modifier.align(Alignment.Start)
                 )
             }
@@ -289,7 +289,6 @@ fun CameraPreview(
                 Row {
                     modeOptions.forEachIndexed { index, option ->
                         RadioButton(selected = (currentCameraMode == index),
-                            modifier = Modifier.scale(0.5f),
                             onClick = {
                                 viewModel.setCameraMode(option)
                             }
@@ -305,7 +304,7 @@ fun CameraPreview(
                                 else -> TODO()
                             },
                             color = Color(0xffffffff),
-                            fontSize = 10.sp,
+                            fontSize = 20.sp,
                             modifier = Modifier
                                 .align(Alignment.CenterVertically)
                                 .clickable(onClick = {
@@ -321,7 +320,6 @@ fun CameraPreview(
                 Row {
                     lensOptions.forEachIndexed { index, option ->
                         RadioButton(selected = (lensSelectedOption == index),
-                            modifier = Modifier.scale(0.5f),
                             onClick = {
                                 lensSelectedOption = index
                                 viewModel.setLens(option)
@@ -338,7 +336,7 @@ fun CameraPreview(
                                 else -> TODO()
                             },
                             color = Color(0xffffffff),
-                            fontSize = 10.sp,
+                            fontSize = 20.sp,
                             modifier = Modifier
                                 .align(Alignment.CenterVertically)
                                 .clickable(onClick = {
@@ -359,7 +357,7 @@ fun CameraPreview(
                     Text(
                         text = stringResource(R.string.switch_enable_preview),
                         color = Color(0xffffffff),
-                        fontSize = 10.sp,
+                        fontSize = 20.sp,
                         modifier = Modifier
                             .align(Alignment.CenterStart)
                             .padding(20.dp, 0.dp, 0.dp, 0.dp)
@@ -371,7 +369,7 @@ fun CameraPreview(
                         },
                         Modifier
                             .align(Alignment.CenterEnd)
-                            .scale(0.5f)
+                            .padding(0.dp,0.dp,20.dp,0.dp)
                     )
                 }
             }
@@ -384,8 +382,7 @@ fun CameraPreview(
                 OutlinedButton(
                     enabled = isCameraButtonEnabled,
                     modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .scale(0.5f),
+                        .align(Alignment.CenterStart),
                     onClick = {
                         isCameraButtonEnabled = !isCameraButtonEnabled
                         if (activated == true) {
@@ -399,7 +396,7 @@ fun CameraPreview(
                     Text(
                         text = if (activated == true) stringResource(R.string.button_stop_camera)
                         else stringResource(R.string.button_start_camera),
-                        fontSize = 14.sp,
+                        fontSize = 20.sp,
                         color = if (isCameraButtonEnabled) Color.White else Color.Gray
                     )
                     if (isCameraStateChanged == true) {
@@ -410,8 +407,7 @@ fun CameraPreview(
                 if (activated != true) {
                     OutlinedButton(
                         modifier = Modifier
-                            .align(Alignment.CenterEnd)
-                            .scale(0.5f),
+                            .align(Alignment.CenterEnd),
                         onClick = {
                             val (available, percent) = storageUtil.isStorageAvailable()
                             if (available) {
@@ -445,7 +441,7 @@ fun CameraPreview(
                     ) {
                         Text(
                             text = stringResource(R.string.button_check_storage),
-                            fontSize = 14.sp,
+                            fontSize = 20.sp,
                             color = Color.White
                         )
 
@@ -463,8 +459,7 @@ fun CameraPreview(
                         OutlinedButton(
                             enabled = isCaptureButtonEnabled,
                             modifier = Modifier
-                                .align(Alignment.CenterStart)
-                                .scale(0.5f),
+                                .align(Alignment.CenterStart),
                             onClick = {
                                 val (available, percent) = storageUtil.isStorageAvailable()
                                 if (available) {
@@ -494,7 +489,7 @@ fun CameraPreview(
                         ) {
                             Text(
                                 text = stringResource(R.string.button_take_photo_warm1),
-                                fontSize = 14.sp,
+                                fontSize = 20.sp,
                                 color = if (isCaptureButtonEnabled) Color.White else Color.Gray
                             )
                             if (isJpegSaved == true) {
@@ -505,8 +500,7 @@ fun CameraPreview(
                         OutlinedButton(
                             enabled = isCaptureButtonEnabled,
                             modifier = Modifier
-                                .align(Alignment.CenterEnd)
-                                .scale(0.5f),
+                                .align(Alignment.CenterEnd),
                             onClick = {
                                 val (available, percent) = storageUtil.isStorageAvailable()
                                 if (available) {
@@ -536,7 +530,7 @@ fun CameraPreview(
                         ) {
                             Text(
                                 text = stringResource(R.string.button_take_photo_warm2),
-                                fontSize = 14.sp,
+                                fontSize = 20.sp,
                                 color = if (isCaptureButtonEnabled) Color.White else Color.Gray
                             )
                             if (isJpegSaved == true) {
@@ -547,8 +541,7 @@ fun CameraPreview(
                         OutlinedButton(
                             enabled = isCaptureButtonEnabled,
                             modifier = Modifier
-                                .align(Alignment.CenterStart)
-                                .scale(0.5f),
+                                .align(Alignment.CenterStart),
                             onClick = {
                                 val (available, percent) = storageUtil.isStorageAvailable()
                                 if (available) {
@@ -578,7 +571,7 @@ fun CameraPreview(
                         ) {
                             Text(
                                 text = stringResource(R.string.button_take_photo_cold1),
-                                fontSize = 14.sp,
+                                fontSize = 20.sp,
                                 color = Color.White
                             )
                             if (isJpegSaved == true) {
@@ -589,8 +582,7 @@ fun CameraPreview(
                         OutlinedButton(
                             enabled = isCaptureButtonEnabled,
                             modifier = Modifier
-                                .align(Alignment.CenterEnd)
-                                .scale(0.5f),
+                                .align(Alignment.CenterEnd),
                             onClick = {
                                 val (available, percent) = storageUtil.isStorageAvailable()
                                 if (available) {
@@ -620,7 +612,7 @@ fun CameraPreview(
                         ) {
                             Text(
                                 text = stringResource(R.string.button_take_photo_cold2),
-                                fontSize = 14.sp,
+                                fontSize = 20.sp,
                                 color = Color.White
                             )
                             if (isJpegSaved == true) {
@@ -633,8 +625,7 @@ fun CameraPreview(
                         OutlinedButton(
                             enabled = isCaptureButtonEnabled,
                             modifier = Modifier
-                                .align(Alignment.CenterStart)
-                                .scale(0.5f),
+                                .align(Alignment.CenterStart),
                             onClick = {
                                 if (!isRecording) {
                                     isCaptureButtonEnabled = !isCaptureButtonEnabled
@@ -659,7 +650,7 @@ fun CameraPreview(
                                         R.string.button_start_record
                                     )
                                 },
-                                fontSize = 14.sp,
+                                fontSize = 20.sp,
                                 color = if (isCameraButtonEnabled) Color.White else Color.Gray
                             )
                         }
@@ -676,8 +667,7 @@ fun CameraPreview(
                     if (isButton2Bursting != true) {
                         OutlinedButton(
                             modifier = Modifier
-                                .align(Alignment.CenterStart)
-                                .scale(0.5f),
+                                .align(Alignment.CenterStart),
                             onClick = {
                                 isTakePhotoCold = false
                                 viewModel.setBurstCount(0)
@@ -704,7 +694,7 @@ fun CameraPreview(
                             Text(
                                 text = if (isButton1Bursting) stringResource(R.string.button_stop_burst)
                                 else stringResource(R.string.button_start_burst1),
-                                fontSize = 14.sp,
+                                fontSize = 20.sp,
                                 color = if (isCameraButtonEnabled) Color.White else Color.Gray
                             )
                             if (isCameraStateChanged == true) {
@@ -716,8 +706,7 @@ fun CameraPreview(
                     if (isButton1Bursting != true) {
                         OutlinedButton(
                             modifier = Modifier
-                                .align(Alignment.CenterEnd)
-                                .scale(0.5f),
+                                .align(Alignment.CenterEnd),
                             onClick = {
                                 isTakePhotoCold = false
                                 viewModel.setBurstCount(0)
@@ -744,7 +733,7 @@ fun CameraPreview(
                             Text(
                                 text = if (isButton2Bursting) stringResource(R.string.button_stop_burst)
                                 else stringResource(R.string.button_start_burst2),
-                                fontSize = 14.sp,
+                                fontSize = 20.sp,
                                 color = if (isCameraButtonEnabled) Color.White else Color.Gray
                             )
                             if (isCameraStateChanged == true) {

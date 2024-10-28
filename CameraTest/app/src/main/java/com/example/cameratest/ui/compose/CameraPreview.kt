@@ -241,6 +241,8 @@ fun CameraPreview(
 //            }
 //        }
 
+        val buttonModifier = Modifier.height(96.dp).padding(vertical = 8.dp)
+
         Column(
             verticalArrangement = Arrangement.Top,
             modifier = Modifier
@@ -381,7 +383,7 @@ fun CameraPreview(
             ) {
                 OutlinedButton(
                     enabled = isCameraButtonEnabled,
-                    modifier = Modifier
+                    modifier = buttonModifier
                         .align(Alignment.CenterStart),
                     onClick = {
                         isCameraButtonEnabled = !isCameraButtonEnabled
@@ -406,7 +408,7 @@ fun CameraPreview(
 
                 if (activated != true) {
                     OutlinedButton(
-                        modifier = Modifier
+                        modifier = buttonModifier
                             .align(Alignment.CenterEnd),
                         onClick = {
                             val (available, percent) = storageUtil.isStorageAvailable()
@@ -458,7 +460,7 @@ fun CameraPreview(
                     if (activated == true) {
                         OutlinedButton(
                             enabled = isCaptureButtonEnabled,
-                            modifier = Modifier
+                            modifier = buttonModifier
                                 .align(Alignment.CenterStart),
                             onClick = {
                                 val (available, percent) = storageUtil.isStorageAvailable()
@@ -499,7 +501,7 @@ fun CameraPreview(
 
                         OutlinedButton(
                             enabled = isCaptureButtonEnabled,
-                            modifier = Modifier
+                            modifier = buttonModifier
                                 .align(Alignment.CenterEnd),
                             onClick = {
                                 val (available, percent) = storageUtil.isStorageAvailable()
@@ -540,7 +542,7 @@ fun CameraPreview(
                     } else {
                         OutlinedButton(
                             enabled = isCaptureButtonEnabled,
-                            modifier = Modifier
+                            modifier = buttonModifier
                                 .align(Alignment.CenterStart),
                             onClick = {
                                 val (available, percent) = storageUtil.isStorageAvailable()
@@ -581,7 +583,7 @@ fun CameraPreview(
 
                         OutlinedButton(
                             enabled = isCaptureButtonEnabled,
-                            modifier = Modifier
+                            modifier = buttonModifier
                                 .align(Alignment.CenterEnd),
                             onClick = {
                                 val (available, percent) = storageUtil.isStorageAvailable()
@@ -624,7 +626,7 @@ fun CameraPreview(
                     if (activated == true) {
                         OutlinedButton(
                             enabled = isCaptureButtonEnabled,
-                            modifier = Modifier
+                            modifier = buttonModifier
                                 .align(Alignment.CenterStart),
                             onClick = {
                                 if (!isRecording) {
@@ -666,7 +668,7 @@ fun CameraPreview(
                 if (currentCameraMode == CameraController.PHOTO && activated == true) {
                     if (isButton2Bursting != true) {
                         OutlinedButton(
-                            modifier = Modifier
+                            modifier = buttonModifier
                                 .align(Alignment.CenterStart),
                             onClick = {
                                 isTakePhotoCold = false
@@ -705,7 +707,7 @@ fun CameraPreview(
 
                     if (isButton1Bursting != true) {
                         OutlinedButton(
-                            modifier = Modifier
+                            modifier = buttonModifier
                                 .align(Alignment.CenterEnd),
                             onClick = {
                                 isTakePhotoCold = false

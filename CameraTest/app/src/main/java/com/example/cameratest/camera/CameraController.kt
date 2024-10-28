@@ -66,6 +66,7 @@ class CameraController(private val viewModel: CameraViewModel) {
         const val SHORT_EDGE = 720
         const val PHOTO = 0
         const val VIDEO = 1
+        const val LENS_FACING = CameraSelector.LENS_FACING_FRONT
     }
 
     private var cameraInactiveTime: Long = 0
@@ -86,7 +87,7 @@ class CameraController(private val viewModel: CameraViewModel) {
     private var previewView: PreviewView? = null
     private var camera: Camera? = null
     private var cameraProvider: ProcessCameraProvider? = null
-    private var lensFacing: Int = CameraSelector.LENS_FACING_BACK
+    private var lensFacing: Int = LENS_FACING
     private var previewEnable: Boolean = false
     private val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
     private val cameraMode = arrayOf(PHOTO, VIDEO)

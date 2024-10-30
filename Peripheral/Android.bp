@@ -1,0 +1,18 @@
+android_app {
+    name: "PeripheralService",
+    platform_apis: true,
+    certificate: "platform",
+    system_ext_specific: true,
+    owner: "somc",
+
+    srcs: [
+        "src/**/*.java",
+        "src/**/*.kt",
+    ],
+    
+    resource_dirs: ["res"],
+
+    static_libs: [
+        "androidx.annotation_annotation",
+    ],
+}

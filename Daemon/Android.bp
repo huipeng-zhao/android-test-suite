@@ -1,0 +1,34 @@
+java_import {
+    name: "daemon-okhttp",
+    jars: [
+        "src/main/libs/okhttp-3.14.9.jar",
+    ],
+}
+
+java_import {
+    name: "daemon-okio",
+    jars: [
+        "src/main/libs/okio-1.17.2.jar",
+    ],
+}
+
+android_app {
+    name: "WareDaemon",
+    platform_apis: true,
+    certificate: "platform",
+    system_ext_specific: true,
+    owner: "somc",
+
+    srcs: [
+        "src/**/*.java",
+        "src/**/*.kt",
+    ],
+    
+    resource_dirs: ["res"],
+
+    static_libs: [
+        "daemon-okhttp",
+        "daemon-okio",
+        "androidx.annotation_annotation",
+    ],
+}

@@ -20,6 +20,18 @@ android {
         }
     }
 
+    signingConfigs {
+        create("platform") {
+            storeFile = file("platform.jks")
+            storePassword = "looki.ai"
+            keyAlias = "platform"
+            keyPassword = "looki.ai"
+            enableV2Signing = true
+            enableV3Signing = true
+            enableV4Signing = true
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -27,6 +39,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("platform")
+        }
+        getByName("debug") {
+            signingConfig = signingConfigs.getByName("platform")
         }
     }
     compileOptions {

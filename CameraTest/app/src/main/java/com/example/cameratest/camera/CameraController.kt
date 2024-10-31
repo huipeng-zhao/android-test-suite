@@ -66,7 +66,7 @@ class CameraController(private val viewModel: CameraViewModel) {
         const val SHORT_EDGE = 720
         const val PHOTO = 0
         const val VIDEO = 1
-        const val LENS_FACING = CameraSelector.LENS_FACING_FRONT
+        const val LENS_FACING = CameraSelector.LENS_FACING_BACK
     }
 
     private var cameraInactiveTime: Long = 0

@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -110,11 +111,15 @@ fun CameraPreview(
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
         onResult = { granted ->
+            granted.forEach { (t, u) ->
+                Log.d("CameraTest", "permission=$t, granted=$u")
+            }
             hasCamPermission = granted.all {
                 it.value
             }
 
             if (!hasCamPermission) {
+                Log.e("CameraTest", "Lack of some permissions, quit.")
                 onFinish.invoke()
             }
         }

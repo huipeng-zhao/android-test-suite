@@ -473,7 +473,7 @@ fun CameraPreview(
                                     isTakePhotoCold = false
                                     isOnImageSavedCallback = false
                                     isCaptureButtonEnabled = !isCaptureButtonEnabled
-                                    viewModel.capturePhoto(context, owner, false)
+                                    viewModel.capturePhoto(context, owner, false, false)
                                 } else {
                                     coroutineScope.launch {
                                         val images = storageUtil.getOldestImages(context)
@@ -514,7 +514,7 @@ fun CameraPreview(
                                     isTakePhotoCold = false
                                     isOnImageSavedCallback = true
                                     isCaptureButtonEnabled = !isCaptureButtonEnabled
-                                    viewModel.capturePhoto(context, owner, true)
+                                    viewModel.capturePhoto(context, owner, true, false)
                                 } else {
                                     coroutineScope.launch {
                                         val images = storageUtil.getOldestImages(context)
@@ -745,6 +745,57 @@ fun CameraPreview(
                             )
                             if (isCameraStateChanged == true) {
                                 isCameraButtonEnabled = true
+                            }
+                        }
+                    }
+                }
+            }
+
+            //Image Size/Quality button
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(),
+            ) {
+                if (currentCameraMode == CameraController.PHOTO) {
+                    if (activated == true) {
+                        OutlinedButton(
+                            enabled = isCaptureButtonEnabled,
+                            modifier = buttonModifier
+                                .align(Alignment.CenterStart),
+                            onClick = {
+                                val (available, percent) = storageUtil.isStorageAvailable()
+                                if (available) {
+                                    isTakePhotoCold = false
+                                    isOnImageSavedCallback = false
+                                    isCaptureButtonEnabled = !isCaptureButtonEnabled
+                                    viewModel.capturePhoto(context, owner, false, true)
+                                } else {
+                                    coroutineScope.launch {
+                                        val images = storageUtil.getOldestImages(context)
+                                        images.forEach { image ->
+                                            storageUtil.performDeleteImage(
+                                                context,
+                                                image.first,
+                                                image.second
+                                            )
+                                        }
+                                    }
+                                    Toast
+                                        .makeText(
+                                            context,
+                                            "Storage is not available, remain $percent%, will delete some files",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                }
+                            }
+                        ) {
+                            Text(
+                                text = stringResource(R.string.button_take_photo_image_size_quality),
+                                fontSize = 20.sp,
+                                color = if (isCaptureButtonEnabled) Color.White else Color.Gray
+                            )
+                            if (isJpegSaved == true) {
+                                isCaptureButtonEnabled = true
                             }
                         }
                     }

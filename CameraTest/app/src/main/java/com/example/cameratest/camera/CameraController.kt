@@ -6,6 +6,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.ImageFormat
 import android.graphics.Matrix
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
@@ -16,8 +17,12 @@ import android.os.Looper
 import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
 import android.util.Log
+import android.util.Size
 import android.view.View
 import android.widget.Toast
+import androidx.annotation.OptIn
+import androidx.camera.camera2.interop.Camera2CameraInfo
+import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
@@ -124,6 +129,27 @@ class CameraController(private val viewModel: CameraViewModel) {
         return cameraSelectorList
     }
 
+    @OptIn(ExperimentalCamera2Interop::class)
+    fun getMaxResolution(context: Context): Size {
+        val cameraId = Camera2CameraInfo.from(camera?.cameraInfo!!).cameraId
+        val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        val characteristics = cameraManager.getCameraCharacteristics(cameraId)
+
+        val configs = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+        val outputSizes = configs?.getOutputSizes(ImageFormat.JPEG)
+        if (!outputSizes.isNullOrEmpty()) {
+            var maxSize = outputSizes[0]
+            outputSizes.forEach {
+                if (it.width * it.height > maxSize.width * maxSize.height) {
+                    maxSize = it
+                }
+            }
+            Log.i(TAG, "max resolution: $maxSize")
+            return maxSize
+        }
+        return outputSizes!![0]
+    }
+
     fun setLens(lens: Int) {
         lensFacing = lens
     }
@@ -157,7 +183,7 @@ class CameraController(private val viewModel: CameraViewModel) {
     ) {
         stopCameraPreview()
         bindCamera(context, owner)
-        capturePhoto(context, owner, isOnImageSavedCallback, true, onImageSaved)
+        capturePhoto(context, owner, isOnImageSavedCallback, true, false, onImageSaved)
     }
 
     fun startCameraPreview(context: Context, owner: LifecycleOwner) {
@@ -205,6 +231,7 @@ class CameraController(private val viewModel: CameraViewModel) {
                 else "LATENCY(-): $latencyString"
             Log.d(TAG, latencyResult)
             viewModel.setCameraActivated(true)
+            getMaxResolution(context)
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -225,6 +252,7 @@ class CameraController(private val viewModel: CameraViewModel) {
         owner: LifecycleOwner,
         isOnImageSavedCallback: Boolean,
         isCold: Boolean,
+        isGenerateMultiJpegs: Boolean,
         onImageSaved: (Bitmap, ByteArray) -> Unit
     ) = owner.lifecycleScope.launch {
         val imageCapture = imageCapture ?: return@launch
@@ -297,28 +325,99 @@ class CameraController(private val viewModel: CameraViewModel) {
 //                    viewModel.onImageCaptured()
                     owner.lifecycleScope.launch {
                         //encoded jpeg
-                        val bitmap = processImageFromBitmap(
-                            imageProxyToBitmap(owner, image),
-                            getRotationDegrees(context, image)
-                        )
-                        jpegEncodedTime = System.currentTimeMillis()
+                        if (isGenerateMultiJpegs) {
+                            val sdf = SimpleDateFormat("yyyyMMdd_HHmmss_S", Locale.getDefault())
+                            val originBitmap = imageProxyToBitmap(owner, image)
+
+                            val bitmap = processImageFromBitmap(
+                                originBitmap,
+                                getRotationDegrees(context, image),
+                                getMaxResolution(context).width,
+                                getMaxResolution(context).height,
+                            )
+                            //max-100
+                            viewModel.saveMultiJpegsToStorage(
+                                context,
+                                bitmap,
+                                sdf.format(System.currentTimeMillis()) + "-" + getMaxResolution(
+                                    context
+                                ).width + "x" + getMaxResolution(context).height + "-100",
+                                100, false
+                            )
+
+                            val bitmap1080 = processImageFromBitmap(
+                                originBitmap,
+                                getRotationDegrees(context, image),
+                                1920,
+                                1080,
+                            )
+                            // 1080p 100、95、90、85
+                            for (quality in listOf(100, 95, 90, 85)) {
+                                if (getMaxResolution(context).width == 1920 && getMaxResolution(context).height == 1080) {
+                                    continue
+                                }
+                                viewModel.saveMultiJpegsToStorage(
+                                    context,
+                                    bitmap1080,
+                                    sdf.format(System.currentTimeMillis()) + "-1920x1080-${quality}",
+                                    quality,false
+                                )
+                            }
+                            val bitmap720 = processImageFromBitmap(
+                                originBitmap,
+                                getRotationDegrees(context, image),
+                                1280,
+                                720,
+                            )
+                            // 720p 100、95、90、80
+                            for (quality in listOf(100, 95, 90, 80)) {
+                                viewModel.saveMultiJpegsToStorage(
+                                    context,
+                                    bitmap720,
+                                    sdf.format(System.currentTimeMillis()) + "-1280x720-${quality}",
+                                    quality, false
+                                )
+                            }
+                            //MediaStore.Images.Thumbnails.MINI_KIND
+                            val bitmapThumb = processImageFromBitmap(
+                                originBitmap,
+                                getRotationDegrees(context, image),
+                                512,
+                                384,
+                            )
+                            viewModel.saveMultiJpegsToStorage(
+                                context,
+                                bitmapThumb,
+                                sdf.format(System.currentTimeMillis()) + "-thumbnail",
+                                100, true
+                            )
+                            viewModel.updateJpegSavedStatus(true)
+                            viewModel.generateThumbnail(context, bitmap, onImageSaved)
+                            image.close()
+                        } else {
+                            val bitmap = processImageFromBitmap(
+                                imageProxyToBitmap(owner, image),
+                                getRotationDegrees(context, image)
+                            )
+                            jpegEncodedTime = System.currentTimeMillis()
 //                        viewModel.setJpegEncodedTime(System.currentTimeMillis())
 //                        viewModel.onJpegEncoded()
-                        //save jpeg to storage
-                        val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
-                        viewModel.saveMediaToStorage(
-                            context,
-                            bitmap,
-                            sdf.format(System.currentTimeMillis()),
-                            false
-                        )
-                        viewModel.updateJpegSavedStatus(true)
-                        jpegSavedTime = System.currentTimeMillis()
-                        printCaptureDoneLog(context, isOnImageSavedCallback, isCold)
+                            //save jpeg to storage
+                            val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
+                            viewModel.saveMediaToStorage(
+                                context,
+                                bitmap,
+                                sdf.format(System.currentTimeMillis()),
+                                false
+                            )
+                            viewModel.updateJpegSavedStatus(true)
+                            jpegSavedTime = System.currentTimeMillis()
+                            printCaptureDoneLog(context, isOnImageSavedCallback, isCold)
 //                        viewModel.setJpegSavedTime(System.currentTimeMillis())
 //                        viewModel.onJpegSaved()
-                        viewModel.generateThumbnail(context, bitmap, onImageSaved)
-                        image.close()
+                            viewModel.generateThumbnail(context, bitmap, onImageSaved)
+                            image.close()
+                        }
                     }
                 }
 
@@ -786,6 +885,24 @@ class CameraController(private val viewModel: CameraViewModel) {
             Pair((SHORT_EDGE * aspectRatio).toInt(), SHORT_EDGE)
         }
 
+        val scaledBitmap = Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
+
+        val matrix = Matrix().apply {
+            postRotate(rotationDegrees)
+        }
+        val rotatedBitmap = Bitmap.createBitmap(
+            scaledBitmap,
+            0,
+            0,
+            scaledBitmap.width,
+            scaledBitmap.height,
+            matrix,
+            true
+        )
+        return rotatedBitmap
+    }
+
+    fun processImageFromBitmap(bitmap: Bitmap, rotationDegrees: Float, targetWidth: Int, targetHeight: Int): Bitmap {
         val scaledBitmap = Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
 
         val matrix = Matrix().apply {

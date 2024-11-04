@@ -5,12 +5,14 @@ import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Environment
 import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
 import android.util.Log
+import android.util.Size
 import android.widget.Toast
 import com.example.cameratest.camera.CameraController.Companion.SHORT_EDGE
 import com.example.cameratest.data.MediaStoreImage
@@ -70,6 +72,51 @@ class StorageUtil {
                     withContext(Dispatchers.Main) {
                         Toast.makeText(context, "Saved Successfully", Toast.LENGTH_SHORT)
                             .show()
+                    }
+                }
+            }
+        }
+    }
+
+    suspend fun saveMultiJpegsToStorage(
+        context: Context,
+        bitmap: Bitmap,
+        name: String,
+        quality: Int,
+        isLast: Boolean
+    ) {
+        withContext(IO) {
+            val filename = "$name.jpg"
+            var fos: OutputStream? = null
+            context.contentResolver?.also { resolver ->
+
+                val contentValues = ContentValues().apply {
+
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
+                    put(MediaStore.MediaColumns.MIME_TYPE, "image/jpg")
+                    put(
+                        MediaStore.MediaColumns.RELATIVE_PATH,
+                        Environment.DIRECTORY_DCIM
+                    )
+                }
+                val imageUri: Uri? =
+                    resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+
+                fos = imageUri?.let {
+                    with(resolver) { openOutputStream(it) }
+                }
+            }
+
+            fos?.use {
+                val success = async(IO) {
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, quality, it)
+                }
+                if (success.await()) {
+                    withContext(Dispatchers.Main) {
+                        if (isLast) {
+                            Toast.makeText(context, "Saved Successfully", Toast.LENGTH_SHORT)
+                                .show()
+                        }
                     }
                 }
             }

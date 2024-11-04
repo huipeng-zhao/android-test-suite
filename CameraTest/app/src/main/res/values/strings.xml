@@ -12,6 +12,7 @@
     <string name="button_take_photo_cold2">Capture cold2</string>
     <string name="button_take_photo_warm1">Capture warm1</string>
     <string name="button_take_photo_warm2">Capture warm2</string>
+    <string name="button_take_photo_image_size_quality">Image Size/Quality</string>
     <string name="button_start_burst1">Start burst1</string>
     <string name="button_start_burst2">Start burst2</string>
     <string name="button_stop_burst">Stop burst</string>

@@ -3,6 +3,7 @@ package com.example.cameratest.viewmodel
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
+import android.util.Size
 import androidx.camera.view.PreviewView
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LiveData
@@ -150,6 +151,16 @@ class CameraViewModel : ViewModel() {
         storageUtil.saveMediaToStorage(context, bitmap, name, isBurst)
     }
 
+    suspend fun saveMultiJpegsToStorage(
+        context: Context,
+        bitmap: Bitmap,
+        name: String,
+        quality: Int,
+        isLast: Boolean
+    ) {
+        storageUtil.saveMultiJpegsToStorage(context, bitmap, name, quality, isLast)
+    }
+
     suspend fun loadImages(context: Context) {
         val imageList = storageUtil.queryImages(context)
         _images.postValue(imageList)
@@ -179,13 +190,15 @@ class CameraViewModel : ViewModel() {
     fun capturePhoto(
         context: Context,
         owner: LifecycleOwner,
-        isOnImageSavedCallback: Boolean
+        isOnImageSavedCallback: Boolean,
+        isGenerateMultiJpegs: Boolean
     ) {
         cameraController.capturePhoto(
             context,
             owner,
             isOnImageSavedCallback,
-            false
+            false,
+            isGenerateMultiJpegs
         ) { bitmap, byteArray ->
             _imageBitmap.value = bitmap
         }

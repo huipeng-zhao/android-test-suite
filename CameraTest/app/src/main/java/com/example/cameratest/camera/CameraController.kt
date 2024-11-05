@@ -8,6 +8,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageFormat
 import android.graphics.Matrix
+import android.hardware.camera2.CameraAccessException
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.net.Uri
@@ -23,6 +24,7 @@ import android.widget.Toast
 import androidx.annotation.OptIn
 import androidx.camera.camera2.interop.Camera2CameraInfo
 import androidx.camera.camera2.interop.ExperimentalCamera2Interop
+import androidx.camera.core.AspectRatio
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
@@ -47,7 +49,7 @@ import androidx.lifecycle.Observer
 import androidx.lifecycle.lifecycleScope
 import com.example.cameratest.MainActivity
 import com.example.cameratest.R
-import com.example.cameratest.camera.CameraController.Companion.SHORT_EDGE
+
 import com.example.cameratest.utils.OrientationUtil
 import com.example.cameratest.utils.StorageUtil
 import com.example.cameratest.viewmodel.CameraViewModel
@@ -68,7 +70,8 @@ import java.util.concurrent.TimeUnit
 class CameraController(private val viewModel: CameraViewModel) {
     companion object {
         const val TAG = "CameraController"
-        const val SHORT_EDGE = 720
+        const val SHORT_EDGE_720 = 720
+        const val SHORT_EDGE_1080 = 1080
         const val PHOTO = 0
         const val VIDEO = 1
         const val LENS_FACING = CameraSelector.LENS_FACING_BACK
@@ -103,6 +106,7 @@ class CameraController(private val viewModel: CameraViewModel) {
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
     private val handler = Handler(Looper.getMainLooper())
     private var doBurst: Boolean = false
+    private var maxSize: Size? = null
     private val previewStreamStateObserver = Observer<StreamState> {
         if (it == StreamState.STREAMING) {
             if (previewEnable) {
@@ -129,25 +133,22 @@ class CameraController(private val viewModel: CameraViewModel) {
         return cameraSelectorList
     }
 
-    @OptIn(ExperimentalCamera2Interop::class)
-    fun getMaxResolution(context: Context): Size {
-        val cameraId = Camera2CameraInfo.from(camera?.cameraInfo!!).cameraId
+    private fun getMaxResolution(context: Context, cameraId: Int): Size? {
         val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-        val characteristics = cameraManager.getCameraCharacteristics(cameraId)
-
-        val configs = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
-        val outputSizes = configs?.getOutputSizes(ImageFormat.JPEG)
-        if (!outputSizes.isNullOrEmpty()) {
-            var maxSize = outputSizes[0]
-            outputSizes.forEach {
-                if (it.width * it.height > maxSize.width * maxSize.height) {
-                    maxSize = it
+        return try {
+            val characteristics = cameraManager.getCameraCharacteristics(cameraId.toString())
+            val map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+            val outputSizes = map?.getOutputSizes(ImageFormat.JPEG)
+            if (!outputSizes.isNullOrEmpty()) {
+                for (index in outputSizes.indices) {
+                    Log.i(TAG, "resolution: $index ${outputSizes[index].width}x${outputSizes[index].height}")
                 }
             }
-            Log.i(TAG, "max resolution: $maxSize")
-            return maxSize
+            outputSizes?.maxByOrNull { it.width * it.height }
+        } catch (e: CameraAccessException) {
+            e.printStackTrace()
+            null
         }
-        return outputSizes!![0]
     }
 
     fun setLens(lens: Int) {
@@ -190,6 +191,8 @@ class CameraController(private val viewModel: CameraViewModel) {
         bindCamera(context, owner)
     }
 
+    @OptIn(ExperimentalCamera2Interop::class)
+    @SuppressLint("RestrictedApi")
     private fun bindCamera(context: Context, owner: LifecycleOwner) {
         Log.d(TAG, "bindCamera: ")
 //        viewModel.setCameraInactiveTime(System.currentTimeMillis())
@@ -200,9 +203,12 @@ class CameraController(private val viewModel: CameraViewModel) {
         val preview = previewBuilder.build().also {
             it.setSurfaceProvider(previewView?.surfaceProvider)
         }
-
+        maxSize = getMaxResolution(context, if (lensFacing == CameraSelector.LENS_FACING_BACK) 0 else 1)
+        Log.i(TAG, "max resolution: $maxSize")
         imageCapture = ImageCapture.Builder()
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+            .setMaxResolution(maxSize!!)
+            .setTargetAspectRatio(getAspectRatio(maxSize!!))
             .build()
 
         val recorder = Recorder.Builder()
@@ -231,7 +237,6 @@ class CameraController(private val viewModel: CameraViewModel) {
                 else "LATENCY(-): $latencyString"
             Log.d(TAG, latencyResult)
             viewModel.setCameraActivated(true)
-            getMaxResolution(context)
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -320,61 +325,62 @@ class CameraController(private val viewModel: CameraViewModel) {
 
                 override fun onCaptureSuccess(image: ImageProxy) {
                     super.onCaptureSuccess(image)
+                    Log.d(TAG, "onCaptureSuccess origin bitmap: size = ${image.width}x${image.height}")
                     imageCapturedTime = System.currentTimeMillis()
 //                    viewModel.setImageCapturedTime(System.currentTimeMillis())
 //                    viewModel.onImageCaptured()
+                    val aspectRatio = image.width.toFloat() / image.height.toFloat()
                     owner.lifecycleScope.launch {
                         //encoded jpeg
                         if (isGenerateMultiJpegs) {
                             val sdf = SimpleDateFormat("yyyyMMdd_HHmmss_S", Locale.getDefault())
+                            val currentTime = System.currentTimeMillis()
                             val originBitmap = imageProxyToBitmap(owner, image)
 
                             val bitmap = processImageFromBitmap(
                                 originBitmap,
                                 getRotationDegrees(context, image),
-                                getMaxResolution(context).width,
-                                getMaxResolution(context).height,
+                                maxSize!!.width,
+                                maxSize!!.height,
                             )
                             //max-100
                             viewModel.saveMultiJpegsToStorage(
                                 context,
                                 bitmap,
-                                sdf.format(System.currentTimeMillis()) + "-" + getMaxResolution(
-                                    context
-                                ).width + "x" + getMaxResolution(context).height + "-100",
+                                sdf.format(currentTime) + "-" + maxSize!!.height + "x" + maxSize!!.width + "-100",
                                 100, false
                             )
 
                             val bitmap1080 = processImageFromBitmap(
                                 originBitmap,
                                 getRotationDegrees(context, image),
-                                1920,
-                                1080,
+                                (SHORT_EDGE_1080 * aspectRatio).toInt(),
+                                SHORT_EDGE_1080,
                             )
-                            // 1080p 100、95、90、85
+                            // 1080p quality: 100/95/90/85
                             for (quality in listOf(100, 95, 90, 85)) {
-                                if (getMaxResolution(context).width == 1920 && getMaxResolution(context).height == 1080) {
+                                if (maxSize!!.width == 1920 && maxSize!!.height == 1080 && quality == 100) {
                                     continue
                                 }
                                 viewModel.saveMultiJpegsToStorage(
                                     context,
                                     bitmap1080,
-                                    sdf.format(System.currentTimeMillis()) + "-1920x1080-${quality}",
+                                    sdf.format(currentTime) + "-1080x${(SHORT_EDGE_1080 * aspectRatio).toInt()}-${quality}",
                                     quality,false
                                 )
                             }
                             val bitmap720 = processImageFromBitmap(
                                 originBitmap,
                                 getRotationDegrees(context, image),
-                                1280,
-                                720,
+                                (SHORT_EDGE_720 * aspectRatio).toInt(),
+                                SHORT_EDGE_720,
                             )
-                            // 720p 100、95、90、80
+                            // 720p quality: 100/95/90/85
                             for (quality in listOf(100, 95, 90, 80)) {
                                 viewModel.saveMultiJpegsToStorage(
                                     context,
                                     bitmap720,
-                                    sdf.format(System.currentTimeMillis()) + "-1280x720-${quality}",
+                                    sdf.format(currentTime) + "-720x${(SHORT_EDGE_720 * aspectRatio).toInt()}-${quality}",
                                     quality, false
                                 )
                             }
@@ -388,7 +394,7 @@ class CameraController(private val viewModel: CameraViewModel) {
                             viewModel.saveMultiJpegsToStorage(
                                 context,
                                 bitmapThumb,
-                                sdf.format(System.currentTimeMillis()) + "-thumbnail",
+                                sdf.format(currentTime) + "-thumbnail",
                                 100, true
                             )
                             viewModel.updateJpegSavedStatus(true)
@@ -536,6 +542,16 @@ class CameraController(private val viewModel: CameraViewModel) {
             "LATENCY($takePhotoUsedTime ms): $latency4String" else "LATENCY(-): $latency4String"
         Log.d(TAG, latency4Result)
         Log.d(TAG, "LATENCY---------------------------------------------------------")
+    }
+
+    private fun getAspectRatio(size: Size): Int {
+        val width = size.width
+        val height = size.height
+        return when {
+            width * 3 == height * 4 -> AspectRatio.RATIO_4_3
+            width * 9 == height * 16 -> AspectRatio.RATIO_16_9
+            else -> AspectRatio.RATIO_DEFAULT
+        }
     }
 
     private fun clearTime() {
@@ -876,15 +892,15 @@ class CameraController(private val viewModel: CameraViewModel) {
     }
 
     fun processImageFromBitmap(bitmap: Bitmap, rotationDegrees: Float): Bitmap {
+        Log.d(TAG, "origin bitmap: size = ${bitmap.width}x${bitmap.height}")
         val originalWidth = bitmap.width
         val originalHeight = bitmap.height
         val aspectRatio: Float = originalWidth.toFloat() / originalHeight.toFloat()
         val (targetWidth, targetHeight) = if (originalWidth < originalHeight) {
-            Pair(SHORT_EDGE, (SHORT_EDGE / aspectRatio).toInt())
+            Pair(SHORT_EDGE_720, (SHORT_EDGE_720 / aspectRatio).toInt())
         } else {
-            Pair((SHORT_EDGE * aspectRatio).toInt(), SHORT_EDGE)
+            Pair((SHORT_EDGE_720 * aspectRatio).toInt(), SHORT_EDGE_720)
         }
-
         val scaledBitmap = Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
 
         val matrix = Matrix().apply {
@@ -903,6 +919,7 @@ class CameraController(private val viewModel: CameraViewModel) {
     }
 
     fun processImageFromBitmap(bitmap: Bitmap, rotationDegrees: Float, targetWidth: Int, targetHeight: Int): Bitmap {
+        Log.d(TAG, "origin bitmap: size = ${bitmap.width}x${bitmap.height}")
         val scaledBitmap = Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
 
         val matrix = Matrix().apply {

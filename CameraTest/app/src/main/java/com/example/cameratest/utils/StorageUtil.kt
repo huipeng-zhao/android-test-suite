@@ -14,7 +14,7 @@ import android.provider.MediaStore
 import android.util.Log
 import android.util.Size
 import android.widget.Toast
-import com.example.cameratest.camera.CameraController.Companion.SHORT_EDGE
+import com.example.cameratest.camera.CameraController.Companion.SHORT_EDGE_720
 import com.example.cameratest.data.MediaStoreImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Dispatchers.IO
@@ -284,9 +284,9 @@ class StorageUtil {
         val originalHeight = bitmap.height
         val aspectRatio: Float = originalWidth.toFloat() / originalHeight.toFloat()
         val (targetWidth, targetHeight) = if (originalWidth < originalHeight) {
-            Pair(SHORT_EDGE, (SHORT_EDGE / aspectRatio).toInt())
+            Pair(SHORT_EDGE_720, (SHORT_EDGE_720 / aspectRatio).toInt())
         } else {
-            Pair((SHORT_EDGE * aspectRatio).toInt(), SHORT_EDGE)
+            Pair((SHORT_EDGE_720 * aspectRatio).toInt(), SHORT_EDGE_720)
         }
 
         val scaledBitmap = Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)

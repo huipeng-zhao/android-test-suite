@@ -1,5 +1,8 @@
 package com.example.cameratest.camera
 
+import android.R.attr.height
+import android.R.attr.tag
+import android.R.attr.width
 import android.annotation.SuppressLint
 import android.content.ContentResolver
 import android.content.ContentValues
@@ -8,6 +11,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageFormat
 import android.graphics.Matrix
+import android.graphics.Rect
 import android.hardware.camera2.CameraAccessException
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
@@ -22,7 +26,6 @@ import android.util.Size
 import android.view.View
 import android.widget.Toast
 import androidx.annotation.OptIn
-import androidx.camera.camera2.interop.Camera2CameraInfo
 import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.Camera
@@ -49,7 +52,6 @@ import androidx.lifecycle.Observer
 import androidx.lifecycle.lifecycleScope
 import com.example.cameratest.MainActivity
 import com.example.cameratest.R
-
 import com.example.cameratest.utils.OrientationUtil
 import com.example.cameratest.utils.StorageUtil
 import com.example.cameratest.viewmodel.CameraViewModel
@@ -141,7 +143,7 @@ class CameraController(private val viewModel: CameraViewModel) {
             val outputSizes = map?.getOutputSizes(ImageFormat.JPEG)
             if (!outputSizes.isNullOrEmpty()) {
                 for (index in outputSizes.indices) {
-                    Log.i(TAG, "resolution: $index ${outputSizes[index].width}x${outputSizes[index].height}")
+                    Log.i(TAG, "resolution [$index] : ${outputSizes[index].width}x${outputSizes[index].height}")
                 }
             }
             outputSizes?.maxByOrNull { it.width * it.height }
@@ -335,7 +337,7 @@ class CameraController(private val viewModel: CameraViewModel) {
                         if (isGenerateMultiJpegs) {
                             val sdf = SimpleDateFormat("yyyyMMdd_HHmmss_S", Locale.getDefault())
                             val currentTime = System.currentTimeMillis()
-                            val originBitmap = imageProxyToBitmap(owner, image)
+                            var originBitmap = imageProxyToBitmap(owner, image)
 
                             val bitmap = processImageFromBitmap(
                                 originBitmap,
@@ -350,12 +352,16 @@ class CameraController(private val viewModel: CameraViewModel) {
                                 sdf.format(currentTime) + "-" + maxSize!!.height + "x" + maxSize!!.width + "-100",
                                 100, false
                             )
-
+                            val (targetWidth_1080, targetHeight_1080) = if (image.width < image.height) {
+                                Pair(SHORT_EDGE_1080, (SHORT_EDGE_1080 / aspectRatio).toInt())
+                            } else {
+                                Pair((SHORT_EDGE_1080 * aspectRatio).toInt(), SHORT_EDGE_1080)
+                            }
                             val bitmap1080 = processImageFromBitmap(
                                 originBitmap,
                                 getRotationDegrees(context, image),
-                                (SHORT_EDGE_1080 * aspectRatio).toInt(),
-                                SHORT_EDGE_1080,
+                                targetWidth_1080,
+                                targetHeight_1080,
                             )
                             // 1080p quality: 100/95/90/85
                             for (quality in listOf(100, 95, 90, 85)) {
@@ -365,27 +371,41 @@ class CameraController(private val viewModel: CameraViewModel) {
                                 viewModel.saveMultiJpegsToStorage(
                                     context,
                                     bitmap1080,
-                                    sdf.format(currentTime) + "-1080x${(SHORT_EDGE_1080 * aspectRatio).toInt()}-${quality}",
+                                    sdf.format(currentTime) + "-${targetHeight_1080}x${targetWidth_1080}-${quality}",
                                     quality,false
                                 )
+                            }
+                            val (targetWidth_720, targetHeight_720) = if (image.width < image.height) {
+                                Pair(SHORT_EDGE_720, (SHORT_EDGE_720 / aspectRatio).toInt())
+                            } else {
+                                Pair((SHORT_EDGE_720 * aspectRatio).toInt(), SHORT_EDGE_720)
                             }
                             val bitmap720 = processImageFromBitmap(
                                 originBitmap,
                                 getRotationDegrees(context, image),
-                                (SHORT_EDGE_720 * aspectRatio).toInt(),
-                                SHORT_EDGE_720,
+                                targetWidth_720,
+                                targetHeight_720,
                             )
                             // 720p quality: 100/95/90/85
                             for (quality in listOf(100, 95, 90, 80)) {
                                 viewModel.saveMultiJpegsToStorage(
                                     context,
                                     bitmap720,
-                                    sdf.format(currentTime) + "-720x${(SHORT_EDGE_720 * aspectRatio).toInt()}-${quality}",
+                                    sdf.format(currentTime) + "-${targetHeight_720}x${targetWidth_720}-${quality}",
                                     quality, false
                                 )
                             }
                             //MediaStore.Images.Thumbnails.MINI_KIND
-                            val bitmapThumb = processImageFromBitmap(
+                            if (image.height * 4 != image.width * 3) {
+                                if (image.width < image.height) {
+                                    originBitmap =
+                                        cropBitmap(originBitmap, image.width, image.height / 3 * 4)
+                                } else {
+                                    originBitmap =
+                                        cropBitmap(originBitmap, image.height / 3 * 4, image.height)
+                                }
+                            }
+                           val bitmapThumb = processImageFromBitmap(
                                 originBitmap,
                                 getRotationDegrees(context, image),
                                 512,
@@ -935,5 +955,15 @@ class CameraController(private val viewModel: CameraViewModel) {
             true
         )
         return rotatedBitmap
+    }
+
+    fun cropBitmap(bitmap: Bitmap, targetWidth: Int, targetHeight: Int): Bitmap {
+        val originalWidth = bitmap.width
+        val originalHeight = bitmap.height
+
+        val x = (originalWidth - targetWidth) / 2
+        val y = (originalHeight - targetHeight) / 2
+
+        return Bitmap.createBitmap(bitmap, x, y, targetWidth, targetHeight)
     }
 }

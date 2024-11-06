@@ -246,7 +246,7 @@ fun CameraPreview(
 //            }
 //        }
 
-        val buttonModifier = Modifier.height(96.dp).padding(vertical = 8.dp)
+        val buttonModifier = Modifier.height(86.dp).padding(vertical = 8.dp)
 
         Column(
             verticalArrangement = Arrangement.Top,
@@ -269,26 +269,6 @@ fun CameraPreview(
                     fontSize = 20.sp,
                     modifier = Modifier.align(Alignment.Start)
                 )
-            }
-
-            // thumbnail layout
-            if (activated == true) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                ) {
-                    imageBitmap?.let { bitmap ->
-                        Image(
-                            bitmap = bitmap.asImageBitmap(),
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(100.dp)
-                                .padding(16.dp)
-                                .align(Alignment.BottomEnd)
-                                .clickable { navigateToGallery() }
-                        )
-                    }
-                }
             }
 
             // select mode layout
@@ -392,6 +372,7 @@ fun CameraPreview(
                         .align(Alignment.CenterStart),
                     onClick = {
                         isCameraButtonEnabled = !isCameraButtonEnabled
+                        viewModel.setBurstCount(0)
                         if (activated == true) {
                             viewModel.stopCameraPreview()
                             viewModel.stopRecording()
@@ -452,6 +433,27 @@ fun CameraPreview(
                             color = Color.White
                         )
 
+                    }
+                }
+
+                // thumbnail layout
+                if (activated == true) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .align(Alignment.BottomEnd),
+                    ) {
+                        imageBitmap?.let { bitmap ->
+                            Image(
+                                bitmap = bitmap.asImageBitmap(),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(100.dp)
+                                    .padding(16.dp)
+                                    .align(Alignment.BottomEnd)
+                                    .clickable { navigateToGallery() }
+                            )
+                        }
                     }
                 }
             }

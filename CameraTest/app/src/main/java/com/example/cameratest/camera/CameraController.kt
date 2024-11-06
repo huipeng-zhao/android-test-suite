@@ -1,8 +1,5 @@
 package com.example.cameratest.camera
 
-import android.R.attr.height
-import android.R.attr.tag
-import android.R.attr.width
 import android.annotation.SuppressLint
 import android.content.ContentResolver
 import android.content.ContentValues
@@ -11,7 +8,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageFormat
 import android.graphics.Matrix
-import android.graphics.Rect
 import android.hardware.camera2.CameraAccessException
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
@@ -339,17 +335,24 @@ class CameraController(private val viewModel: CameraViewModel) {
                             val currentTime = System.currentTimeMillis()
                             var originBitmap = imageProxyToBitmap(owner, image)
 
+                            val (targetWidthMax, targetHeightMax) =
+                                if ((image.width < image.height && maxSize!!.width > maxSize!!.height)
+                                    || image.width > image.height && maxSize!!.width < maxSize!!.height) {
+                                Pair(maxSize!!.height, maxSize!!.width)
+                            } else {
+                                Pair(maxSize!!.width, maxSize!!.height)
+                            }
                             val bitmap = processImageFromBitmap(
                                 originBitmap,
                                 getRotationDegrees(context, image),
-                                maxSize!!.width,
-                                maxSize!!.height,
+                                targetWidthMax,
+                                targetHeightMax,
                             )
                             //max-100
                             viewModel.saveMultiJpegsToStorage(
                                 context,
                                 bitmap,
-                                sdf.format(currentTime) + "-" + maxSize!!.height + "x" + maxSize!!.width + "-100",
+                                sdf.format(currentTime) + "-" + targetHeightMax + "x" + targetWidthMax + "-100",
                                 100, false
                             )
                             val (targetWidth_1080, targetHeight_1080) = if (image.width < image.height) {
@@ -386,7 +389,7 @@ class CameraController(private val viewModel: CameraViewModel) {
                                 targetWidth_720,
                                 targetHeight_720,
                             )
-                            // 720p quality: 100/95/90/85
+                            // 720p quality: 100/95/90/80
                             for (quality in listOf(100, 95, 90, 80)) {
                                 viewModel.saveMultiJpegsToStorage(
                                     context,
@@ -399,17 +402,22 @@ class CameraController(private val viewModel: CameraViewModel) {
                             if (image.height * 4 != image.width * 3) {
                                 if (image.width < image.height) {
                                     originBitmap =
-                                        cropBitmap(originBitmap, image.width, image.height / 3 * 4)
+                                        cropBitmap(originBitmap, image.width, image.width / 3 * 4)
                                 } else {
                                     originBitmap =
                                         cropBitmap(originBitmap, image.height / 3 * 4, image.height)
                                 }
                             }
+                            val (targetWidthThumb, targetHeightThumb) = if (image.width < image.height) {
+                                Pair(384, 512)
+                            } else {
+                                Pair(512, 384)
+                            }
                            val bitmapThumb = processImageFromBitmap(
                                 originBitmap,
                                 getRotationDegrees(context, image),
-                                512,
-                                384,
+                               targetWidthThumb,
+                               targetHeightThumb,
                             )
                             viewModel.saveMultiJpegsToStorage(
                                 context,

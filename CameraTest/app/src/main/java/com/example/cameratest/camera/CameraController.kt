@@ -30,6 +30,7 @@ import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
+import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.video.FileOutputOptions
 import androidx.camera.video.MediaStoreOutputOptions
@@ -136,7 +137,9 @@ class CameraController(private val viewModel: CameraViewModel) {
         return try {
             val characteristics = cameraManager.getCameraCharacteristics(cameraId.toString())
             val map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
-            val outputSizes = map?.getOutputSizes(ImageFormat.JPEG)
+            val outputSizesNormal = map?.getOutputSizes(ImageFormat.JPEG)
+            val outputSizesHigh = map?.getHighResolutionOutputSizes(ImageFormat.JPEG)
+            val outputSizes = outputSizesNormal!! + outputSizesHigh!!
             if (!outputSizes.isNullOrEmpty()) {
                 for (index in outputSizes.indices) {
                     Log.i(TAG, "resolution [$index] : ${outputSizes[index].width}x${outputSizes[index].height}")
@@ -203,10 +206,13 @@ class CameraController(private val viewModel: CameraViewModel) {
         }
         maxSize = getMaxResolution(context, if (lensFacing == CameraSelector.LENS_FACING_BACK) 0 else 1)
         Log.i(TAG, "max resolution: $maxSize")
+        val resolutionSelector = ResolutionSelector.Builder()
+            .setAllowedResolutionMode(ResolutionSelector.PREFER_HIGHER_RESOLUTION_OVER_CAPTURE_RATE).build()
         imageCapture = ImageCapture.Builder()
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
             .setMaxResolution(maxSize!!)
-            .setTargetAspectRatio(getAspectRatio(maxSize!!))
+            .setResolutionSelector(resolutionSelector)
+//            .setTargetAspectRatio(getAspectRatio(maxSize!!))
             .build()
 
         val recorder = Recorder.Builder()

@@ -41,9 +41,10 @@ class ReaderActivity : TestActivityBase(), ReaderCallback {
     }
 
     private fun initView() {
-        Objects.requireNonNull(supportActionBar)?.title =
-            resources.getString(R.string.nfc_hce_reader_tests)
-        supportActionBar!!.setBackgroundDrawable(ColorDrawable(getColor(R.color.bg1_common)))
+        supportActionBar?.apply {
+            title = getString(R.string.nfc_hce_reader_tests)
+            setBackgroundDrawable(ColorDrawable(getColor(R.color.bg1_common)))
+        }
         mTextView = findViewById(R.id.text)
         mHtmlText = HtmlText(this, mTextView, R.id.scroll)
         findViewById<View>(R.id.scroll).setBackgroundColor(

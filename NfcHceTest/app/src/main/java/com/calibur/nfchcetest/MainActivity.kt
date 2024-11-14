@@ -32,7 +32,9 @@ class MainActivity : TestActivityBase() {
     }
 
     private fun initView() {
-        supportActionBar!!.setBackgroundDrawable(ColorDrawable(getColor(R.color.bg1_common)))
+        supportActionBar?.apply {
+            title = getString(R.string.app_name)
+        }
         val readerBt = findViewById<Button>(R.id.reader_bt)
         readerBt.setOnClickListener { v: View? ->
             val intent = Intent(this@MainActivity, ReaderActivity::class.java)

@@ -2,7 +2,6 @@ package com.example.cameratest.camera
 
 import android.annotation.SuppressLint
 import android.content.ContentResolver
-import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -12,7 +11,6 @@ import android.hardware.camera2.CameraAccessException
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.net.Uri
-import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.os.ParcelFileDescriptor
@@ -52,6 +50,9 @@ import com.example.cameratest.R
 import com.example.cameratest.utils.OrientationUtil
 import com.example.cameratest.utils.StorageUtil
 import com.example.cameratest.viewmodel.CameraViewModel
+import com.example.media.ImageMediaManager
+import com.example.media.MediaManager
+import com.example.media.VideoMediaManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -76,6 +77,7 @@ class CameraController(private val viewModel: CameraViewModel) {
         const val LENS_FACING = CameraSelector.LENS_FACING_BACK
     }
 
+    private var mediaManager: MediaManager? = null
     private var cameraInactiveTime: Long = 0
     private var cameraReadyTime: Long = 0
     private var startTakePhotoTime: Long = 0
@@ -271,18 +273,12 @@ class CameraController(private val viewModel: CameraViewModel) {
         viewModel.updateJpegSavedStatus(false)
         startTakePhotoTime = System.currentTimeMillis()
         if (isOnImageSavedCallback) {
-            val name = System.currentTimeMillis().toString() + ".jpg"
-            val contentValues = ContentValues().apply {
-                put(MediaStore.MediaColumns.DISPLAY_NAME, name)
-                put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
-                put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DCIM)
-            }
-
+            mediaManager = ImageMediaManager()
             val outputOptions = ImageCapture.OutputFileOptions
                 .Builder(
                     context.contentResolver,
                     MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                    contentValues
+                    mediaManager?.newContentValues()!!
                 )
                 .build()
             imageCapture.takePicture(outputOptions, ContextCompat.getMainExecutor(context),
@@ -656,17 +652,12 @@ class CameraController(private val viewModel: CameraViewModel) {
         onStartFail: () -> Unit, onImageSaved: (Bitmap, ByteArray) -> Unit
     ) {
         val videoFileName = sdf.format(System.currentTimeMillis()) + ".mp4"
-
-        val contentValues = ContentValues().apply {
-            put(MediaStore.Video.Media.DISPLAY_NAME, videoFileName)
-            put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4")
-            put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DCIM)
-        }
+        mediaManager = VideoMediaManager()
         val mediaStoreOutput = MediaStoreOutputOptions.Builder(
             context.contentResolver,
             MediaStore.Video.Media.EXTERNAL_CONTENT_URI
         )
-            .setContentValues(contentValues)
+            .setContentValues(mediaManager?.newContentValues()!!)
             .build()
 
         val fileStoreOutput = FileOutputOptions.Builder(
@@ -885,17 +876,11 @@ class CameraController(private val viewModel: CameraViewModel) {
     }
 
     private fun makeOutputOptionsForPhoto(context: Context): ImageCapture.OutputFileOptions {
+        mediaManager = ImageMediaManager()
         return ImageCapture.OutputFileOptions
             .Builder(context.contentResolver,
                 MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                ContentValues().apply {
-                    put(
-                        MediaStore.MediaColumns.DISPLAY_NAME,
-                        System.currentTimeMillis().toString() + ".jpg"
-                    )
-                    put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
-                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DCIM)
-                }).build()
+                mediaManager?.newContentValues()!!).build()
     }
 
     private fun getRotationDegrees(context: Context, image: ImageProxy) : Float{

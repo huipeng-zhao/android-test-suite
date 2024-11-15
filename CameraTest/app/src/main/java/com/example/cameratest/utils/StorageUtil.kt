@@ -5,14 +5,12 @@ import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Matrix
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Environment
 import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
 import android.util.Log
-import android.util.Size
 import android.widget.Toast
 import com.example.cameratest.camera.CameraController.Companion.SHORT_EDGE_720
 import com.example.cameratest.data.MediaStoreImage
@@ -302,13 +300,13 @@ class StorageUtil {
         return byteArray
     }
 
-    fun getAvailableStorageSize(): Long {
+    private fun getAvailableStorageSize(): Long {
         val freeSpace = Environment.getDataDirectory().freeSpace
         //MB
         return freeSpace / 1000 / 1000
     }
 
-    fun getTotalStorageSize(): Long {
+    private fun getTotalStorageSize(): Long {
         val totalSpace =
             Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM).totalSpace
         //MB

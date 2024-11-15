@@ -2,20 +2,20 @@ package com.example.cameratest.viewmodel
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.util.Log
-import android.util.Size
 import androidx.camera.view.PreviewView
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import com.example.cameratest.camera.CameraController
-import com.example.cameratest.data.MediaStoreImage
 import com.example.cameratest.utils.StorageUtil
 import com.example.cameratest.utils.ThumbnailUtil
+import com.example.media.FileInfo
+import com.example.media.MediaManager
 
 class CameraViewModel : ViewModel() {
 
+    private val mediaManager = MediaManager()
     private val storageUtil = StorageUtil()
     private val thumbnailUtil = ThumbnailUtil()
     private val cameraController = CameraController(this)
@@ -56,8 +56,8 @@ class CameraViewModel : ViewModel() {
     var isCameraStateChanged = MutableLiveData<Boolean>(false)
     var isJpegSaved = MutableLiveData<Boolean>(false)
 
-    private val _images = MutableLiveData<List<MediaStoreImage>>()
-    val images: LiveData<List<MediaStoreImage>> get() = _images
+    private val _images = MutableLiveData<List<FileInfo>>()
+    val images: LiveData<List<FileInfo>> get() = _images
 
     private var _imageBitmap = MutableLiveData<Bitmap>(null)
     val imageBitmap: LiveData<Bitmap> get() = _imageBitmap
@@ -162,8 +162,7 @@ class CameraViewModel : ViewModel() {
     }
 
     suspend fun loadImages(context: Context) {
-        val imageList = storageUtil.queryImages(context)
-        _images.postValue(imageList)
+        _images.postValue(mediaManager.listFiles(context))
     }
 
     fun startCameraPreview(context: Context, owner: LifecycleOwner) {

@@ -35,9 +35,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.cameratest.R
-import com.example.cameratest.data.MediaStoreImage
 import com.example.cameratest.utils.StorageUtil
 import com.example.cameratest.viewmodel.CameraViewModel
+import com.example.media.FileInfo
+import com.example.media.MediaManager
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -49,9 +50,10 @@ fun GalleryView(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val storageUtil = StorageUtil()
+    val mediaManager = MediaManager()
     val listData by viewModel.images.observeAsState()
     var selectFileName by remember { mutableStateOf("") }
-    var deleteItem by remember { mutableStateOf<MediaStoreImage?>(null) }
+    var deleteItem by remember { mutableStateOf<FileInfo?>(null) }
     var isShowDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(key1 = true) {
@@ -138,7 +140,7 @@ fun GalleryView(
                     TextButton(
                         onClick = {
                             coroutineScope.launch {
-                                storageUtil.performDeleteImage(context, deleteItem!!)
+                                mediaManager.remove(context, deleteItem!!)
                                 viewModel.loadImages(context)
                             }
                             isShowDialog = false

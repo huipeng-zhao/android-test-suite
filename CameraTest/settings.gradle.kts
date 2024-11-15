@@ -21,4 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "CameraTest"
 include(":app")
-
+include(":media")

@@ -3,7 +3,6 @@ package com.example.cameratest.ui.compose
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -16,7 +15,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -24,7 +22,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
@@ -41,10 +38,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -55,6 +50,8 @@ import com.example.cameratest.R
 import com.example.cameratest.camera.CameraController
 import com.example.cameratest.utils.StorageUtil
 import com.example.cameratest.viewmodel.CameraViewModel
+import com.example.media.MediaManager
+import com.example.media.StorageMonitor
 import kotlinx.coroutines.launch
 
 @Composable
@@ -66,6 +63,8 @@ fun CameraPreview(
     navigateToGallery: () -> Unit
 ) {
     val storageUtil = StorageUtil()
+    val mediaManager = MediaManager()
+    val storageMonitor = StorageMonitor(10.0)
     val coroutineScope = rememberCoroutineScope()
     val requiredPermission = arrayOf(
         Manifest.permission.CAMERA,
@@ -397,7 +396,7 @@ fun CameraPreview(
                         modifier = buttonModifier
                             .align(Alignment.CenterEnd),
                         onClick = {
-                            val (available, percent) = storageUtil.isStorageAvailable()
+                            val (available, percent) = storageMonitor.status
                             if (available) {
                                 Toast
                                     .makeText(
@@ -410,7 +409,7 @@ fun CameraPreview(
                                 coroutineScope.launch {
                                     val images = storageUtil.getOldestImages(context)
                                     images.forEach { image ->
-                                        storageUtil.performDeleteImage(
+                                        mediaManager.remove(
                                             context,
                                             image.first,
                                             image.second
@@ -470,7 +469,7 @@ fun CameraPreview(
                             modifier = buttonModifier
                                 .align(Alignment.CenterStart),
                             onClick = {
-                                val (available, percent) = storageUtil.isStorageAvailable()
+                                val (available, percent) = storageMonitor.status
                                 if (available) {
                                     isTakePhotoCold = false
                                     isOnImageSavedCallback = false
@@ -480,7 +479,7 @@ fun CameraPreview(
                                     coroutineScope.launch {
                                         val images = storageUtil.getOldestImages(context)
                                         images.forEach { image ->
-                                            storageUtil.performDeleteImage(
+                                            mediaManager.remove(
                                                 context,
                                                 image.first,
                                                 image.second
@@ -511,7 +510,7 @@ fun CameraPreview(
                             modifier = buttonModifier
                                 .align(Alignment.CenterEnd),
                             onClick = {
-                                val (available, percent) = storageUtil.isStorageAvailable()
+                                val (available, percent) = storageMonitor.status
                                 if (available) {
                                     isTakePhotoCold = false
                                     isOnImageSavedCallback = true
@@ -521,7 +520,7 @@ fun CameraPreview(
                                     coroutineScope.launch {
                                         val images = storageUtil.getOldestImages(context)
                                         images.forEach { image ->
-                                            storageUtil.performDeleteImage(
+                                            mediaManager.remove(
                                                 context,
                                                 image.first,
                                                 image.second
@@ -552,7 +551,7 @@ fun CameraPreview(
                             modifier = buttonModifier
                                 .align(Alignment.CenterStart),
                             onClick = {
-                                val (available, percent) = storageUtil.isStorageAvailable()
+                                val (available, percent) = storageMonitor.status
                                 if (available) {
                                     isTakePhotoCold = true
                                     isOnImageSavedCallback = false
@@ -562,7 +561,7 @@ fun CameraPreview(
                                     coroutineScope.launch {
                                         val images = storageUtil.getOldestImages(context)
                                         images.forEach { image ->
-                                            storageUtil.performDeleteImage(
+                                            mediaManager.remove(
                                                 context,
                                                 image.first,
                                                 image.second
@@ -593,7 +592,7 @@ fun CameraPreview(
                             modifier = buttonModifier
                                 .align(Alignment.CenterEnd),
                             onClick = {
-                                val (available, percent) = storageUtil.isStorageAvailable()
+                                val (available, percent) = storageMonitor.status
                                 if (available) {
                                     isTakePhotoCold = true
                                     isOnImageSavedCallback = true
@@ -603,7 +602,7 @@ fun CameraPreview(
                                     coroutineScope.launch {
                                         val images = storageUtil.getOldestImages(context)
                                         images.forEach { image ->
-                                            storageUtil.performDeleteImage(
+                                            mediaManager.remove(
                                                 context,
                                                 image.first,
                                                 image.second
@@ -765,7 +764,7 @@ fun CameraPreview(
                             modifier = buttonModifier
                                 .align(Alignment.CenterStart),
                             onClick = {
-                                val (available, percent) = storageUtil.isStorageAvailable()
+                                val (available, percent) = storageMonitor.status
                                 if (available) {
                                     isTakePhotoCold = false
                                     isOnImageSavedCallback = false
@@ -775,7 +774,7 @@ fun CameraPreview(
                                     coroutineScope.launch {
                                         val images = storageUtil.getOldestImages(context)
                                         images.forEach { image ->
-                                            storageUtil.performDeleteImage(
+                                            mediaManager.remove(
                                                 context,
                                                 image.first,
                                                 image.second

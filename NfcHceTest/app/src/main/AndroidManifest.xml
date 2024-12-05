@@ -19,11 +19,28 @@
             android:name=".EmulatorActivity"
             android:exported="false" />
         <activity
+            android:name=".NdefEmulatorActivity"
+            android:exported="false" />
+        <activity
             android:name=".ReaderActivity"
             android:exported="false" />
         <activity
             android:name=".TestActivityBase"
             android:exported="false" />
+        <activity
+            android:name=".NdefReaderActivity"
+            android:launchMode="singleTop"
+            android:exported="false" >
+
+        <intent-filter>
+            <action android:name="android.nfc.action.NDEF_DISCOVERED" />
+            <category android:name="android.intent.category.DEFAULT" />
+        </intent-filter>
+        <meta-data
+            android:name="android.nfc.action.NDEF_DISCOVERED"
+            android:value="text/plain" />
+        </activity>
+
         <activity
             android:name=".MainActivity"
             android:exported="true">
@@ -48,6 +65,22 @@
                 android:name="android.nfc.cardemulation.host_apdu_service"
                 android:resource="@xml/transport_aid_list_1"/>
         </service>
+
+        <service
+            android:name=".HceNdefService"
+            android:exported="true"
+            android:permission="android.permission.BIND_NFC_SERVICE"
+            android:label="@string/ndefService1"
+            android:enabled="false">
+            <intent-filter>
+                <action android:name="android.nfc.cardemulation.action.HOST_APDU_SERVICE" />
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.nfc.cardemulation.host_apdu_service"
+                android:resource="@xml/hce_ndef_service" />
+        </service>
+
     </application>
 
 </manifest>

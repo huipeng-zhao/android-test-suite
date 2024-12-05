@@ -5,6 +5,7 @@ import android.nfc.NfcAdapter
 import android.nfc.cardemulation.CardEmulation
 import android.os.AsyncTask
 import android.util.Log
+import com.calibur.nfchcetest.HceNdefService
 import com.calibur.nfchcetest.TransportService1
 import com.calibur.nfchcetest.Util
 
@@ -16,7 +17,8 @@ class HceServiceManager {
         private val TAG = "HceServiceManager"
 
         private val sServices = arrayListOf(
-            TransportService1.COMPONENT
+            TransportService1.COMPONENT,
+            HceNdefService.COMPONENT
         )
 
         fun setupServices(
@@ -28,14 +30,14 @@ class HceServiceManager {
             SetupServicesTask(context, callback).execute(*components)
         }
 
-        fun disableAllServices(context: Context, callback: HceServiceSetupListener) {
+        fun disableAllServices(context: Context, callback: HceServiceSetupListener?) {
             Log.d(TAG, "disableAllServices:")
             SetupServicesTask(context, callback).execute()
         }
 
         private class SetupServicesTask(
             context: Context,
-            private val callback: HceServiceSetupListener
+            private val callback: HceServiceSetupListener?
         ) : AsyncTask<ComponentName, Void, Boolean>() {
 
             private val mCardEmulation =
@@ -131,7 +133,7 @@ class HceServiceManager {
 
             override fun onPostExecute(result: Boolean) {
                 super.onPostExecute(result)
-                callback.onServiceSetupFinished(result)
+                callback?.onServiceSetupFinished(result)
             }
         }
 

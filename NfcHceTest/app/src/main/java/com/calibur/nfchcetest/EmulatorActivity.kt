@@ -94,6 +94,11 @@ class EmulatorActivity : TestActivityBase() {
         unregisterReceiver(mReceiver)
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        HceServiceManager.disableAllServices(this, null)
+    }
+
     private val mReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             when (intent.action) {

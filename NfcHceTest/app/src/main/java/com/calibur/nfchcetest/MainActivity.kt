@@ -1,10 +1,10 @@
 package com.calibur.nfchcetest
 
 import HceServiceManager
+import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.drawable.ColorDrawable
 import android.nfc.NfcAdapter
 import android.os.Bundle
 import android.util.Log
@@ -36,9 +36,8 @@ class MainActivity : TestActivityBase() {
             title = getString(R.string.app_name)
         }
         val readerBt = findViewById<Button>(R.id.reader_bt)
-        readerBt.setOnClickListener { v: View? ->
-            val intent = Intent(this@MainActivity, ReaderActivity::class.java)
-            startActivity(intent)
+        readerBt.setOnClickListener {
+            showSelectReaderDialog()
         }
 
         val emulatorBt = findViewById<Button>(R.id.emulator_bt)
@@ -52,8 +51,7 @@ class MainActivity : TestActivityBase() {
                 this@MainActivity
             ) { result: Boolean? ->
                 dismissDialog()
-                val intent = Intent(this@MainActivity, EmulatorActivity::class.java)
-                startActivity(intent)
+                showSelectEmulatorDialog()
             }
         }
 
@@ -108,5 +106,67 @@ class MainActivity : TestActivityBase() {
             } catch (e: Exception) {
             }
         }
+    }
+
+    private fun showSelectReaderDialog() {
+        val options = arrayOf("Custom", "NDEF")
+        var selectedIndex = -1
+        val builder = AlertDialog.Builder(this)
+        builder.setTitle("Please Select Reader")
+            .setSingleChoiceItems(options, selectedIndex) { dialog, which ->
+                selectedIndex = which
+            }
+            .setPositiveButton("OK") { dialog, which ->
+                when (selectedIndex) {
+                    0 -> {
+                        val intent = Intent(this@MainActivity, ReaderActivity::class.java)
+                        startActivity(intent)
+                    }
+
+                    1 -> {
+                        val intent = Intent(this@MainActivity, NdefReaderActivity::class.java)
+                        startActivity(intent)
+                    }
+
+                    else -> {
+                        Log.e(TAG, "Reader Select Error.")
+                    }
+                }
+            }
+            .setNegativeButton("Cancel") { dialog, which ->
+                Log.e(TAG, "Reader Select Cancel.")
+            }
+        builder.create().show()
+    }
+
+    private fun showSelectEmulatorDialog() {
+        val options = arrayOf("Custom", "NDEF")
+        var selectedIndex = -1
+        val builder = AlertDialog.Builder(this)
+        builder.setTitle("Please Select Emulator")
+            .setSingleChoiceItems(options, selectedIndex) { dialog, which ->
+                selectedIndex = which
+            }
+            .setPositiveButton("OK") { dialog, which ->
+                when (selectedIndex) {
+                    0 -> {
+                        val intent = Intent(this@MainActivity, EmulatorActivity::class.java)
+                        startActivity(intent)
+                    }
+
+                    1 -> {
+                        val intent = Intent(this@MainActivity, NdefEmulatorActivity::class.java)
+                        startActivity(intent)
+                    }
+
+                    else -> {
+                        Log.e(TAG, "Reader Select Error.")
+                    }
+                }
+            }
+            .setNegativeButton("Cancel") { dialog, which ->
+                Log.e(TAG, "Reader Select Cancel.")
+            }
+        builder.create().show()
     }
 }

@@ -27,6 +27,7 @@ object Util {
     const val EXTRA_DURATION: String = "duration"
 
     const val TRANSPORT_AID: String = "F001020304"
+    const val NDEF_AID: String = "F001020305"
     const val PPSE_AID: String = "325041592E5359532E4444463031"
     const val MC_AID: String = "A0000000041010"
 

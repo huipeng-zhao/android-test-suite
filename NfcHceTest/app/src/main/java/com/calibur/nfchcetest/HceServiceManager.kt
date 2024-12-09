@@ -5,6 +5,7 @@ import android.nfc.NfcAdapter
 import android.nfc.cardemulation.CardEmulation
 import android.os.AsyncTask
 import android.util.Log
+import com.calibur.nfchcetest.HceBtPairService
 import com.calibur.nfchcetest.HceNdefService
 import com.calibur.nfchcetest.TransportService1
 import com.calibur.nfchcetest.Util
@@ -18,7 +19,8 @@ class HceServiceManager {
 
         private val sServices = arrayListOf(
             TransportService1.COMPONENT,
-            HceNdefService.COMPONENT
+            HceNdefService.COMPONENT,
+            HceBtPairService.COMPONENT
         )
 
         fun setupServices(

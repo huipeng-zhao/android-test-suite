@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<host-apdu-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:requireDeviceUnlock="true"
+    android:description="@string/btPairService1">
+    <aid-group>F001020304
+        <aid-filter android:name="F001020306"/>
+    </aid-group>
+</host-apdu-service>

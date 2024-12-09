@@ -4,6 +4,13 @@
 
     <uses-permission android:name="android.permission.NFC" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+
+    <uses-feature android:name="android.hardware.bluetooth" android:required="true" />
 
     <application
         android:allowBackup="true"
@@ -14,7 +21,13 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.NfcHceTest"
-        tools:targetApi="31">
+        tools:targetApi="30">
+        <activity
+            android:name=".BtPairEmulatorActivity"
+            android:exported="false" />
+        <activity
+            android:name=".BtPairReaderActivity"
+            android:exported="false" />
         <activity
             android:name=".EmulatorActivity"
             android:exported="false" />
@@ -29,18 +42,18 @@
             android:exported="false" />
         <activity
             android:name=".NdefReaderActivity"
-            android:launchMode="singleTop"
-            android:exported="false" >
+            android:exported="false"
+            android:launchMode="singleTop">
+            <intent-filter>
+                <action android:name="android.nfc.action.NDEF_DISCOVERED" />
 
-        <intent-filter>
-            <action android:name="android.nfc.action.NDEF_DISCOVERED" />
-            <category android:name="android.intent.category.DEFAULT" />
-        </intent-filter>
-        <meta-data
-            android:name="android.nfc.action.NDEF_DISCOVERED"
-            android:value="text/plain" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.nfc.action.NDEF_DISCOVERED"
+                android:value="text/plain" />
         </activity>
-
         <activity
             android:name=".MainActivity"
             android:exported="true">
@@ -53,34 +66,52 @@
 
         <service
             android:name=".TransportService1"
+            android:enabled="false"
             android:exported="true"
-            android:permission="android.permission.BIND_NFC_SERVICE"
             android:label="@string/transportService1"
-            android:enabled="false">
-            <intent-filter>
-                <action android:name="android.nfc.cardemulation.action.HOST_APDU_SERVICE"/>
-                <category android:name="android.intent.category.DEFAULT"/>
-            </intent-filter>
-            <meta-data
-                android:name="android.nfc.cardemulation.host_apdu_service"
-                android:resource="@xml/transport_aid_list_1"/>
-        </service>
-
-        <service
-            android:name=".HceNdefService"
-            android:exported="true"
-            android:permission="android.permission.BIND_NFC_SERVICE"
-            android:label="@string/ndefService1"
-            android:enabled="false">
+            android:permission="android.permission.BIND_NFC_SERVICE">
             <intent-filter>
                 <action android:name="android.nfc.cardemulation.action.HOST_APDU_SERVICE" />
-                <category android:name="android.intent.category.DEFAULT"/>
+
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+
+            <meta-data
+                android:name="android.nfc.cardemulation.host_apdu_service"
+                android:resource="@xml/transport_aid_list_1" />
+        </service>
+        <service
+            android:name=".HceNdefService"
+            android:enabled="false"
+            android:exported="true"
+            android:label="@string/ndefService1"
+            android:permission="android.permission.BIND_NFC_SERVICE">
+            <intent-filter>
+                <action android:name="android.nfc.cardemulation.action.HOST_APDU_SERVICE" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+
             <meta-data
                 android:name="android.nfc.cardemulation.host_apdu_service"
                 android:resource="@xml/hce_ndef_service" />
         </service>
+        <service
+            android:name=".HceBtPairService"
+            android:enabled="false"
+            android:exported="true"
+            android:label="@string/btPairService1"
+            android:permission="android.permission.BIND_NFC_SERVICE">
+            <intent-filter>
+                <action android:name="android.nfc.cardemulation.action.HOST_APDU_SERVICE" />
 
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.nfc.cardemulation.host_apdu_service"
+                android:resource="@xml/hce_bt_pair_service" />
+        </service>
     </application>
 
 </manifest>

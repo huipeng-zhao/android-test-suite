@@ -109,7 +109,7 @@ class MainActivity : TestActivityBase() {
     }
 
     private fun showSelectReaderDialog() {
-        val options = arrayOf("Custom", "NDEF")
+        val options = arrayOf("Custom", "NDEF", "BTPair")
         var selectedIndex = -1
         val builder = AlertDialog.Builder(this)
         builder.setTitle("Please Select Reader")
@@ -128,6 +128,11 @@ class MainActivity : TestActivityBase() {
                         startActivity(intent)
                     }
 
+                    2 -> {
+                        val intent = Intent(this@MainActivity, BtPairReaderActivity::class.java)
+                        startActivity(intent)
+                    }
+
                     else -> {
                         Log.e(TAG, "Reader Select Error.")
                     }
@@ -140,7 +145,7 @@ class MainActivity : TestActivityBase() {
     }
 
     private fun showSelectEmulatorDialog() {
-        val options = arrayOf("Custom", "NDEF")
+        val options = arrayOf("Custom", "NDEF", "BTPair")
         var selectedIndex = -1
         val builder = AlertDialog.Builder(this)
         builder.setTitle("Please Select Emulator")
@@ -156,6 +161,11 @@ class MainActivity : TestActivityBase() {
 
                     1 -> {
                         val intent = Intent(this@MainActivity, NdefEmulatorActivity::class.java)
+                        startActivity(intent)
+                    }
+
+                    2 -> {
+                        val intent = Intent(this@MainActivity, BtPairEmulatorActivity::class.java)
                         startActivity(intent)
                     }
 

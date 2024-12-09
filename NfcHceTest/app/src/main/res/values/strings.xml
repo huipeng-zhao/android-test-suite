@@ -12,4 +12,8 @@
     <string name="nfc_hce_bt_pair">BT Pair</string>
     <string name="ndefService1">HceNdefService #1</string>
 
+    <string name="nfc_hce_bt_pair_emulator">HCE Emulator BT Pair</string>
+    <string name="nfc_bt_pair_reader">HCE Reader BT Pair</string>
+    <string name="btPairService1">HceBtPairService #1</string>
+
 </resources>

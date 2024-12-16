@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">ShakeDetector</string>
+    <string name="shake_detector_created">Shake detector created and started!</string>
+    <string name="shake_detector_error">ERROR: Cannot create and start shake detector!</string>
+    <string name="shake_detector_restarted">Listener restarted successfully.</string>
+    <string name="shake_detector_stopped">Listener stopped.</string>
+    <string name="shake_detector_destroyed">Listener Destroyed.</string>
+    <string name="shake_detected">Shake detected. Send toast</string>
+</resources>

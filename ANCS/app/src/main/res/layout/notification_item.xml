@@ -1,22 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-android:layout_width="match_parent"
-android:layout_height="wrap_content"
-android:orientation="vertical"
-android:padding="16dp"
-android:background="?attr/selectableItemBackground">
-
-<TextView
-    android:id="@+id/titleTextView"
-    android:layout_width="wrap_content"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:textStyle="bold"
-    android:textSize="18sp"/>
+    android:background="?attr/selectableItemBackground"
+    android:padding="16dp">
 
-<TextView
-    android:id="@+id/messageTextView"
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    android:textSize="16sp"
-    android:layout_marginTop="4dp"/>
-</LinearLayout>
+    <TextView
+        android:id="@+id/titleTextView"
+        android:layout_width="wrap_content"
+        android:layout_height="48dp"
+        android:textSize="18sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/messageTextView"
+        android:layout_width="wrap_content"
+        android:layout_height="48dp"
+        android:layout_below="@id/titleTextView"
+        android:layout_marginTop="4dp"
+        android:textSize="16sp" />
+</RelativeLayout>

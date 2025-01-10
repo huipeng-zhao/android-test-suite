@@ -26,7 +26,6 @@ import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.floatingactionbutton.FloatingActionButton
 import java.util.UUID
 
 class MainActivity : AppCompatActivity() {
@@ -34,7 +33,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var deviceInfoTextView: TextView
     private lateinit var scanButton: Button
     private lateinit var connectButton: Button
-    private lateinit var button: FloatingActionButton
     private lateinit var recyclerView: RecyclerView
     private lateinit var notificationAdapter: NotificationAdapter
     private val notifications = mutableListOf<NotificationData>()
@@ -45,6 +43,8 @@ class MainActivity : AppCompatActivity() {
 
     private val bluetoothAdapter: BluetoothAdapter by lazy { BluetoothAdapter.getDefaultAdapter() }
     private val pairedDevices = mutableListOf<BluetoothDevice>()
+
+    private var isRequestInProgress = false
 
     companion object {
         private const val TAG = "ANCS_MainActivity"
@@ -75,11 +75,10 @@ class MainActivity : AppCompatActivity() {
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun initUI() {
-        deviceInfoTextView = findViewById(R.id.deviceInfoTextView)
-        scanButton = findViewById(R.id.scanButton)
-        connectButton = findViewById(R.id.connectButton)
-        button = findViewById(R.id.select)
-        recyclerView = findViewById(R.id.recyclerView)
+        deviceInfoTextView = findViewById(R.id.deviceInfoTextView)!!
+        scanButton = findViewById(R.id.scanButton)!!
+        connectButton = findViewById(R.id.connectButton)!!
+        recyclerView = findViewById(R.id.recyclerView)!!
 
         notificationAdapter = NotificationAdapter(notifications)
         recyclerView.adapter = notificationAdapter
@@ -90,14 +89,6 @@ class MainActivity : AppCompatActivity() {
 
         scanButton.setOnClickListener { startScan() }
         connectButton.setOnClickListener { connectToDevice() }
-        button.setOnClickListener {
-            if (notificationEvents.isNotEmpty()) {
-                val event = notificationEvents.first()
-                val notificationId = event.notificationUID
-                requestNotificationAttributes(notificationId)
-            }
-        }
-
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
@@ -234,12 +225,21 @@ class MainActivity : AppCompatActivity() {
             characteristic: BluetoothGattCharacteristic
         ) {
             super.onCharacteristicChanged(gatt, characteristic)
+            Log.d(TAG, "onCharacteristicChanged -> uuid: ${characteristic.uuid}")
+            if (characteristic.value.isEmpty()) {
+                Log.e(TAG, "Received empty data")
+            }
             when (characteristic.uuid) {
                 ANC_NOTIFICATION_SOURCE_CHARACTERISTIC_UUID -> {
                     parseNotificationEvent(characteristic.value)
                 }
 
-                ANC_DATA_SOURCE_UUID -> parseNotificationData(characteristic.value)
+                ANC_DATA_SOURCE_UUID -> {
+                    val data = characteristic.value
+                    if (data[0].toInt() == 0) {
+                        parseNotificationData(data)
+                    }
+                }
             }
         }
 
@@ -266,6 +266,26 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        override fun onCharacteristicWrite(
+            gatt: BluetoothGatt?,
+            characteristic: BluetoothGattCharacteristic?,
+            status: Int
+        ) {
+            super.onCharacteristicWrite(gatt, characteristic, status)
+            if (characteristic != null) {
+                Log.d(
+                    TAG,
+                    "CharacteristicWrite data: ${Util.bytesToHexString(characteristic.value)}"
+                )
+            }
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                Log.d(TAG, "Request sent successfully")
+            } else {
+                Log.e(TAG, "Failed to send request, status: $status")
+            }
+            isRequestInProgress = false
+
+        }
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
@@ -276,6 +296,7 @@ class MainActivity : AppCompatActivity() {
         bluetoothGatt?.writeDescriptor(descriptor)
     }
 
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun parseNotificationEvent(data: ByteArray) {
         if (data.isEmpty()) {
             Log.e(TAG, "Received empty notification event")
@@ -294,20 +315,39 @@ class MainActivity : AppCompatActivity() {
                     }"
         )
 
-        val eventId = data[0].toInt()
-        val eventFlags = data[1].toInt()
-        val categoryId = data[2].toInt()
-        val categoryCount = data[3].toInt()
-        val notificationId = data.copyOfRange(4, 8)
-
         val notificationEvent = NotificationEvent(
-            eventId,
-            eventFlags,
-            categoryId,
-            categoryCount,
-            notificationId
+            data[0].toInt(),
+            data[1].toInt(),
+            data[2].toInt(),
+            data[3].toInt(),
+            data.copyOfRange(4, 8)
         )
-        notificationEvents.add(notificationEvent)
+        if (notificationEvent.eventId == 0) {
+            Log.d(TAG, "EventId: Add")
+            notificationEvents.add(notificationEvent)
+            if (!isRequestInProgress) {
+                requestNotificationAttributes(notificationEvent.notificationUID)
+            }
+
+        } else if (notificationEvent.eventId == 1) {
+            //更改
+            Log.d(TAG, "EventId: Modified")
+        } else if (notificationEvent.eventId == 2) {
+            //删除
+            Log.d(TAG, "EventId: Removed")
+        }
+
+        if (notificationEvent.eventFlags and 0x01 != 0) {
+            Log.d(TAG, "isSilent Notification")
+        } else if (notificationEvent.eventFlags and 0x02 != 0) {
+            Log.d(TAG, "Important Notification")
+        } else if (notificationEvent.eventFlags and 0x04 != 0) {
+            Log.d(TAG, "PreExisting Notification")
+        } else if (notificationEvent.eventFlags and 0x08 != 0) {
+            Log.d(TAG, "PositiveAction Notification")
+        } else if (notificationEvent.eventFlags and 0x10 != 0) {
+            Log.d(TAG, "NegativeAction Notification")
+        }
         Log.d(
             TAG, "Event ID: ${data[0]}" +
                     " Event Flags: ${data[1]}" +
@@ -320,10 +360,12 @@ class MainActivity : AppCompatActivity() {
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun parseNotificationData(data: ByteArray) {
         Log.d(TAG, "CommandID = ${data[0]}")
+        Log.d(TAG, "data: ${Util.bytesToHexString(data)}")
 
         // 解析 NotificationUID
         val notificationUID = data.sliceArray(1..4).reversed()
             .fold(0) { acc, byte -> (acc shl 8) or (byte.toInt() and 0xFF) }
+        Log.d(TAG, "UID: $notificationUID")
 
         val commandId = data[0].toInt()
         var tagIndex = 5
@@ -346,48 +388,48 @@ class MainActivity : AppCompatActivity() {
 
         while (tagIndex < data.size) {
             val tag = data[tagIndex]
-
             when (tag) {
+
                 0x00.toByte() -> { // AppIdentifier
                     appId = data[tagIndex + 1].toInt() and 0xFF
                     Log.d(TAG, "appId = $appId")
                     tagIndex += 2
                 }
 
-                0x01.toByte() -> {
+                0x01.toByte() -> { //title
                     title = parseField(tag); Log.d(TAG, "title = $title")
                 }
 
-                0x02.toByte() -> {
+                0x02.toByte() -> { //subtitle
                     subtitle = parseField(tag); Log.d(TAG, "subtitle = $subtitle")
                 }
 
-                0x03.toByte() -> {
+                0x03.toByte() -> { //message
                     msg = parseField(tag); Log.d(TAG, "message = $msg")
                 }
 
-                0x04.toByte() -> {
+                0x04.toByte() -> { //messageSize
                     messageSize = data[tagIndex + 1].toInt() and 0xFF; Log.d(
                         TAG,
                         "messageSize = $messageSize"
                     ); tagIndex += 2
                 }
 
-                0x06.toByte() -> {
+                0x06.toByte() -> { //positiveActionLabel
                     positiveActionLabel = parseField(tag); Log.d(
                         TAG,
                         "positiveActionLabel = $positiveActionLabel"
                     )
                 }
 
-                0x07.toByte() -> {
+                0x07.toByte() -> { //negativeActionLabel
                     negativeActionLabel = parseField(tag); Log.d(
                         TAG,
                         "negativeActionLabel = $negativeActionLabel"
                     )
                 }
 
-                0x05.toByte() -> {
+                0x05.toByte() -> { //timeStamp
                     val timestamp =
                         (data[tagIndex + 1].toInt() and 0xFF) + (data[tagIndex + 2].toInt() and 0xFF) * 256
                     Log.d(TAG, "date = $timestamp")
@@ -424,23 +466,34 @@ class MainActivity : AppCompatActivity() {
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun requestNotificationAttributes(data: ByteArray) {
+        if (isRequestInProgress) {
+            Log.d(TAG, "Request already in progress, skipping...")
+            return
+        }
         Log.d(TAG, "requestNotificationAttributes")
+        isRequestInProgress = true;
+
         val getNotificationAttribute = byteArrayOf(
             0x00.toByte(), //commandId
             data[0],
             data[1],
             data[2],
             data[3], //NotificationUID
-            0x00.toByte(), ////AttributeID --NotificationAttributeIDAppIdentifier
+//            0xFF.toByte(), ////AttributeID --NotificationAttributeIDAppIdentifier
+            0x00.toByte(),
+//            0xFF.toByte(),
             0x01.toByte(),
-            0xFF.toByte(),
             0xFF.toByte(), //AttributeID --NotificationAttributeIDTitle
+            0xFF.toByte(),
+
             0x02.toByte(),
-            0xFF.toByte(),
             0xFF.toByte(), //AttributeID --NotificationAttributeIDSubtitle
-            0x03.toByte(),
             0xFF.toByte(),
+
+            0x03.toByte(),
             0xFF.toByte(), //AttributeID --NotificationAttributeIDMessage
+            0xFF.toByte(),
+
             0x04.toByte(), //AttributeID --NotificationAttributeIDMessageSize
             0x05.toByte(), //AttributeID --NotificationAttributeIDDate
             0x06.toByte(), //AttributeID --NotificationAttributeIDPositiveActionLabel

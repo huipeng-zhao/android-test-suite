@@ -45,6 +45,7 @@ class MainActivity : AppCompatActivity() {
     private val pairedDevices = mutableListOf<BluetoothDevice>()
 
     private var isRequestInProgress = false
+    private lateinit var mNotificationData: NotificationData
 
     companion object {
         private const val TAG = "ANCS_MainActivity"
@@ -238,6 +239,8 @@ class MainActivity : AppCompatActivity() {
                     val data = characteristic.value
                     if (data[0].toInt() == 0) {
                         parseNotificationData(data)
+                    } else if (data[0].toInt() == 1) {
+                        parseAppAttributes(data)
                     }
                 }
             }
@@ -359,7 +362,6 @@ class MainActivity : AppCompatActivity() {
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun parseNotificationData(data: ByteArray) {
-        Log.d(TAG, "CommandID = ${data[0]}")
         Log.d(TAG, "data: ${Util.bytesToHexString(data)}")
 
         // 解析 NotificationUID
@@ -369,11 +371,13 @@ class MainActivity : AppCompatActivity() {
 
         val commandId = data[0].toInt()
         var tagIndex = 5
-        var appId = 0
+        var appIdentifier = ""
+        var appIdentifierLen = 0;
         var title = ""
         var subtitle = ""
         var msg = ""
-        var messageSize = 0
+        var messageSize = ""
+        var timeStamp = ""
         var positiveActionLabel = ""
         var negativeActionLabel = ""
 
@@ -387,15 +391,13 @@ class MainActivity : AppCompatActivity() {
         }
 
         while (tagIndex < data.size) {
-            val tag = data[tagIndex]
-            when (tag) {
+            when (val tag = data[tagIndex]) {
 
                 0x00.toByte() -> { // AppIdentifier
-                    appId = data[tagIndex + 1].toInt() and 0xFF
-                    Log.d(TAG, "appId = $appId")
-                    tagIndex += 2
+                    appIdentifierLen =
+                        (data[tagIndex + 1].toInt() and 0xFF) + (data[tagIndex + 2].toInt() and 0xFF) * 256
+                    appIdentifier = parseField(tag); Log.d(TAG, "AppIdentifier: $appIdentifier")
                 }
-
                 0x01.toByte() -> { //title
                     title = parseField(tag); Log.d(TAG, "title = $title")
                 }
@@ -409,10 +411,11 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 0x04.toByte() -> { //messageSize
-                    messageSize = data[tagIndex + 1].toInt() and 0xFF; Log.d(
-                        TAG,
-                        "messageSize = $messageSize"
-                    ); tagIndex += 2
+                    messageSize = parseField(tag); Log.d(TAG, "messageSize = $messageSize")
+                }
+
+                0x05.toByte() -> { //timeStamp
+                    timeStamp = parseField(tag); Log.d(TAG, "timeStamp = $timeStamp")
                 }
 
                 0x06.toByte() -> { //positiveActionLabel
@@ -429,19 +432,13 @@ class MainActivity : AppCompatActivity() {
                     )
                 }
 
-                0x05.toByte() -> { //timeStamp
-                    val timestamp =
-                        (data[tagIndex + 1].toInt() and 0xFF) + (data[tagIndex + 2].toInt() and 0xFF) * 256
-                    Log.d(TAG, "date = $timestamp")
-                    tagIndex += 3
-                }
-
                 else -> tagIndex += 1 // 跳过不需要解析的字段
             }
         }
 
         val attributeID = AttributeID(
-            appId,
+            appIdentifier,
+            appIdentifierLen,
             title,
             subtitle,
             msg,
@@ -450,18 +447,14 @@ class MainActivity : AppCompatActivity() {
             positiveActionLabel,
             negativeActionLabel
         )
+        mNotificationData = NotificationData(
+            commandId,
+            byteArrayOf(data[1], data[2], data[3], data[4]),
+            attributeID,
+            ""
+        )
 
-        runOnUiThread {
-            val notificationData = NotificationData(commandId, data, attributeID)
-            notifications.add(notificationData)
-            notificationAdapter.notifyItemInserted(notifications.size)
-            notificationEvents.removeAt(0)
-
-            if (notificationEvents.isNotEmpty()) {
-                val event = notificationEvents.first()
-                requestNotificationAttributes(event.notificationUID)
-            }
-        }
+        requestAppAttributes(appIdentifier)
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
@@ -479,9 +472,8 @@ class MainActivity : AppCompatActivity() {
             data[1],
             data[2],
             data[3], //NotificationUID
-//            0xFF.toByte(), ////AttributeID --NotificationAttributeIDAppIdentifier
             0x00.toByte(),
-//            0xFF.toByte(),
+
             0x01.toByte(),
             0xFF.toByte(), //AttributeID --NotificationAttributeIDTitle
             0xFF.toByte(),
@@ -495,12 +487,14 @@ class MainActivity : AppCompatActivity() {
             0xFF.toByte(),
 
             0x04.toByte(), //AttributeID --NotificationAttributeIDMessageSize
+
             0x05.toByte(), //AttributeID --NotificationAttributeIDDate
+
             0x06.toByte(), //AttributeID --NotificationAttributeIDPositiveActionLabel
+
             0x07.toByte(), //AttributeID --NotificationAttributeIDNegativeActionLabel
         )
-
-        Log.i(TAG, "send common = " + Util.bytesToHexString(getNotificationAttribute))
+        Log.i(TAG, "send notify attribute request = " + Util.bytesToHexString(getNotificationAttribute))
         if (bluetoothGatt != null) {
             val service = bluetoothGatt?.getService(ANC_SERVICE_UUID)
             if (service == null) {
@@ -516,6 +510,63 @@ class MainActivity : AppCompatActivity() {
                     characteristic.value = getNotificationAttribute
                     bluetoothGatt?.writeCharacteristic(characteristic)
                 }
+            }
+        }
+    }
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    private fun requestAppAttributes(appIdentifier: String) {
+        val commandId = byteArrayOf(
+            0x01.toByte()
+        )
+        val appIdentifierArray = appIdentifier.toByteArray()
+        val appAttributeIDArray = byteArrayOf(
+            0x00.toByte()
+        )
+        val combinedByteArray = commandId + appIdentifierArray + byteArrayOf(0x00.toByte()) + appAttributeIDArray
+
+        Log.i(TAG, "send app attribute request = " + Util.bytesToHexString(combinedByteArray))
+        if (bluetoothGatt != null) {
+            val service = bluetoothGatt?.getService(ANC_SERVICE_UUID)
+            if (service == null) {
+                Log.d(TAG, "cant find service")
+            } else {
+                Log.d(TAG, "find service")
+                val characteristic =
+                    service.getCharacteristic(ANC_CONTROL_POINT_CHARACTERISTIC_UUID)
+                if (characteristic == null) {
+                    Log.d(TAG, "cant find chara")
+                } else {
+                    Log.d(TAG, "find chara")
+                    characteristic.value = combinedByteArray
+                    bluetoothGatt?.writeCharacteristic(characteristic)
+                }
+            }
+        }
+
+    }
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    private fun parseAppAttributes(data: ByteArray) {
+        Log.d(TAG, "CommandID = ${data[0]}")
+        Log.d(TAG, "App attributes response: ${Util.bytesToHexString(data)}")
+        // 解析 DisplayName 属性
+        Log.d(TAG, "len = ${mNotificationData.attributeID.appIdentifierLen}")
+        var tagIndex = 1 + mNotificationData.attributeID.appIdentifierLen + 1 + 1 //AttributeID + NULL-terminated
+        val displayNameLength =
+            (data[tagIndex].toInt() and 0xFF) + (data[tagIndex + 1].toInt() and 0xFF) * 256
+        tagIndex += 2
+        val displayName = String(data, tagIndex, displayNameLength)
+        Log.d(TAG, "Display Name: $displayName")
+        runOnUiThread {
+            mNotificationData.displayName = displayName
+            notifications.add(mNotificationData)
+            notificationAdapter.notifyItemInserted(notifications.size)
+            notificationEvents.removeAt(0)
+
+            if (notificationEvents.isNotEmpty()) {
+                val event = notificationEvents.first()
+                requestNotificationAttributes(event.notificationUID)
             }
         }
     }

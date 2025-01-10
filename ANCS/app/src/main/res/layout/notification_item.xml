@@ -11,6 +11,14 @@
         android:layout_height="48dp"
         android:textSize="18sp"
         android:textStyle="bold" />
+    <TextView
+        android:id="@+id/appNameTextView"
+        android:layout_width="wrap_content"
+        android:layout_height="48dp"
+        android:layout_alignParentEnd="true"
+        android:layout_marginEnd="8dp"
+        android:textSize="18sp"
+        android:textStyle="bold" />
 
     <TextView
         android:id="@+id/messageTextView"

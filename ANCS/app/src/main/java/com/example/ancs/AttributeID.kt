@@ -1,11 +1,12 @@
 package com.example.ancs
 
 data class AttributeID(
-    var notificationAttributeIDAppIdentifier: Int,
+    var notificationAttributeIDAppIdentifier: String,
+    var appIdentifierLen: Int,
     var notificationAttributeIDTitle: String,
     var notificationAttributeIDSubtitle: String,
     var notificationAttributeIDMessage: String,
-    var notificationAttributeIDMessageSize: Int,
+    var notificationAttributeIDMessageSize: String,
     var notificationAttributeIDDate: String,
     var notificationAttributeIDPositiveActionLabel: String,
     val notificationAttributeIDNegativeActionLabel: String

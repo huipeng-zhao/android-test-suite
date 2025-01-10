@@ -11,6 +11,7 @@ class NotificationAdapter(private val notifications: List<NotificationData>) :
 
     class NotificationViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val titleTextView: TextView? = itemView.findViewById(R.id.titleTextView)
+        val appNameTextView: TextView? = itemView.findViewById(R.id.appNameTextView)
         val messageTextView: TextView? = itemView.findViewById(R.id.messageTextView)
     }
 
@@ -23,6 +24,7 @@ class NotificationAdapter(private val notifications: List<NotificationData>) :
     override fun onBindViewHolder(holder: NotificationViewHolder, position: Int) {
         val notification = notifications[position]
         holder.titleTextView?.text = notification.attributeID.notificationAttributeIDTitle
+        holder.appNameTextView?.text = notification.displayName
         holder.messageTextView?.text = notification.attributeID.notificationAttributeIDMessage
     }
 

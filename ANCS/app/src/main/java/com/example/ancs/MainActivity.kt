@@ -30,22 +30,22 @@ import java.util.UUID
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var deviceInfoTextView: TextView
-    private lateinit var scanButton: Button
-    private lateinit var connectButton: Button
-    private lateinit var recyclerView: RecyclerView
-    private lateinit var notificationAdapter: NotificationAdapter
-    private val notifications = mutableListOf<NotificationData>()
-    private var selectedDevice: BluetoothDevice? = null
-    private var bluetoothGatt: BluetoothGatt? = null
-    private var connectedGatt: BluetoothGatt? = null
-    private val notificationEvents = mutableListOf<NotificationEvent>()
+    private var deviceInfoTextView: TextView? = null
+    private var scanButton: Button? = null
+    private var connectButton: Button? = null
+    private var recyclerView: RecyclerView? = null
+    private var notificationAdapter: NotificationAdapter? = null
+    private lateinit var mNotificationData: NotificationData
 
-    private val bluetoothAdapter: BluetoothAdapter by lazy { BluetoothAdapter.getDefaultAdapter() }
+    private val notifications = mutableListOf<NotificationData>()
+    private val notificationEvents = mutableListOf<NotificationEvent>()
+    private var selectedDevice: BluetoothDevice? = null
     private val pairedDevices = mutableListOf<BluetoothDevice>()
 
+    private var bluetoothGatt: BluetoothGatt? = null
+    private var connectedGatt: BluetoothGatt? = null
+    private val bluetoothAdapter: BluetoothAdapter by lazy { BluetoothAdapter.getDefaultAdapter() }
     private var isRequestInProgress = false
-    private lateinit var mNotificationData: NotificationData
 
     companion object {
         private const val TAG = "ANCS_MainActivity"
@@ -76,32 +76,45 @@ class MainActivity : AppCompatActivity() {
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun initUI() {
-        deviceInfoTextView = findViewById(R.id.deviceInfoTextView)!!
-        scanButton = findViewById(R.id.scanButton)!!
-        connectButton = findViewById(R.id.connectButton)!!
-        recyclerView = findViewById(R.id.recyclerView)!!
-
-        notificationAdapter = NotificationAdapter(notifications)
-        recyclerView.adapter = notificationAdapter
-        recyclerView.layoutManager = LinearLayoutManager(this).apply {
-            orientation = LinearLayoutManager.VERTICAL
+        with(findViewById<TextView>(R.id.deviceInfoTextView)) { deviceInfoTextView = this }
+        with(findViewById<Button>(R.id.scanButton)) { scanButton = this }
+        with(findViewById<Button>(R.id.connectButton)) { connectButton = this }
+        with(findViewById<RecyclerView>(R.id.recyclerView)) {
+            recyclerView = this
+            this?.layoutManager = LinearLayoutManager(this@MainActivity).apply {
+                orientation = LinearLayoutManager.VERTICAL
+            }
+            this?.addItemDecoration(
+                DividerItemDecoration(
+                    this@MainActivity,
+                    DividerItemDecoration.VERTICAL
+                )
+            )
         }
-        recyclerView.addItemDecoration(DividerItemDecoration(this, DividerItemDecoration.VERTICAL))
 
-        scanButton.setOnClickListener { startScan() }
-        connectButton.setOnClickListener { connectToDevice() }
+        notificationAdapter = NotificationAdapter(notifications) { onItemClicked(it) }
+        recyclerView?.adapter = notificationAdapter
+
+        scanButton?.setOnClickListener { startScan() }
+        connectButton?.setOnClickListener { connectToDevice() }
+    }
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    private fun onItemClicked(notification: NotificationData) {
+        Log.d(TAG, "onItemClicked: ${Util.bytesToHexString(notification.notificationUID)}")
+        val action = when {
+            notification.attributeID.notificationAttributeIDNegativeActionLabel.isNotEmpty() -> 1
+            notification.attributeID.notificationAttributeIDPositiveActionLabel.isNotEmpty() -> 0
+            else -> 2
+        }
+        sendNotifyAction(notification.notificationUID, action)
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     @RequiresApi(Build.VERSION_CODES.S)
     private fun checkBluetoothAndPermissions() {
-        if (!bluetoothAdapter.isEnabled) {
-            requestBluetoothEnable()
-        }
-
-        if (!hasRequiredPermissions()) {
-            requestPermissions()
-        }
+        if (!bluetoothAdapter.isEnabled) requestBluetoothEnable()
+        if (!hasRequiredPermissions()) requestPermissions()
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
@@ -111,17 +124,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     @RequiresApi(Build.VERSION_CODES.S)
-    private fun hasRequiredPermissions(): Boolean {
-        return ContextCompat.checkSelfPermission(
-            this, Manifest.permission.BLUETOOTH_SCAN
-        ) == PackageManager.PERMISSION_GRANTED &&
-                ContextCompat.checkSelfPermission(
-                    this, Manifest.permission.BLUETOOTH_CONNECT
-                ) == PackageManager.PERMISSION_GRANTED &&
-                ContextCompat.checkSelfPermission(
-                    this, Manifest.permission.ACCESS_FINE_LOCATION
-                ) == PackageManager.PERMISSION_GRANTED
-    }
+    private fun hasRequiredPermissions(): Boolean =
+        listOf(
+            Manifest.permission.BLUETOOTH_SCAN,
+            Manifest.permission.BLUETOOTH_CONNECT,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ).all {
+            ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
+        }
 
     @RequiresApi(Build.VERSION_CODES.S)
     private fun requestPermissions() {
@@ -137,7 +147,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showMessage(message: String) {
-        deviceInfoTextView.text = message
+        deviceInfoTextView?.text = message
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
@@ -157,13 +167,13 @@ class MainActivity : AppCompatActivity() {
     private fun showDeviceSelectionDialog() {
         val deviceNames = pairedDevices.map { "${it.name} (${it.address})" }
         if (deviceNames.isNotEmpty()) {
-            val builder = AlertDialog.Builder(this)
-            builder.setTitle("Select Device")
-            builder.setItems(deviceNames.toTypedArray()) { _, which ->
-                selectedDevice = pairedDevices[which]
-                runOnUiThread { showMessage("Selected Device: ${deviceNames[which]}") }
-            }
-            builder.show()
+            AlertDialog.Builder(this).apply {
+                setTitle("Select Device")
+                setItems(deviceNames.toTypedArray()) { _, which ->
+                    selectedDevice = pairedDevices[which]
+                    runOnUiThread { showMessage("Selected Device: ${deviceNames[which]}") }
+                }
+            }.show()
         } else {
             showMessage("There Are No Paired Devices Available。")
         }
@@ -174,7 +184,7 @@ class MainActivity : AppCompatActivity() {
         selectedDevice?.let {
             bluetoothGatt = it.connectGatt(this, false, gattCallback)
             showMessage("Connecting: ${it.name} (${it.address})")
-        } ?: run { showMessage("No Device Selected") }
+        } ?: showMessage("No Device Selected")
     }
 
     private val gattCallback = object : BluetoothGattCallback() {
@@ -193,8 +203,7 @@ class MainActivity : AppCompatActivity() {
             connectedGatt = gatt
             runOnUiThread {
                 showMessage("Connected: ${gatt.device.name}")
-                val success = gatt.discoverServices()
-                if (!success) showMessage("Service Discovery Failed To Start")
+                if (!gatt.discoverServices()) showMessage("Service Discovery Failed To Start")
             }
         }
 
@@ -206,12 +215,8 @@ class MainActivity : AppCompatActivity() {
         override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
             super.onServicesDiscovered(gatt, status)
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                val ancsService = gatt.getService(ANC_SERVICE_UUID)
-                if (ancsService != null) {
-                    setupCharacteristics(ancsService)
-                } else {
-                    Log.d(TAG, "ANCS service not found")
-                }
+                gatt.getService(ANC_SERVICE_UUID)?.let { setupCharacteristics(it) }
+                    ?: Log.d(TAG, "ANCS service not found")
             }
         }
 
@@ -223,26 +228,21 @@ class MainActivity : AppCompatActivity() {
         @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
         override fun onCharacteristicChanged(
             gatt: BluetoothGatt,
-            characteristic: BluetoothGattCharacteristic
+            characteristic: BluetoothGattCharacteristic,
+            value: ByteArray
         ) {
-            super.onCharacteristicChanged(gatt, characteristic)
-            Log.d(TAG, "onCharacteristicChanged -> uuid: ${characteristic.uuid}")
-            if (characteristic.value.isEmpty()) {
-                Log.e(TAG, "Received empty data")
-            }
+            super.onCharacteristicChanged(gatt, characteristic, value)
             when (characteristic.uuid) {
-                ANC_NOTIFICATION_SOURCE_CHARACTERISTIC_UUID -> {
-                    parseNotificationEvent(characteristic.value)
-                }
+                ANC_NOTIFICATION_SOURCE_CHARACTERISTIC_UUID -> parseNotificationEvent(value)
+                ANC_DATA_SOURCE_UUID -> handleDataSource(value)
+            }
+        }
 
-                ANC_DATA_SOURCE_UUID -> {
-                    val data = characteristic.value
-                    if (data[0].toInt() == 0) {
-                        parseNotificationData(data)
-                    } else if (data[0].toInt() == 1) {
-                        parseAppAttributes(data)
-                    }
-                }
+        @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+        private fun handleDataSource(data: ByteArray) {
+            when (data[0].toInt()) {
+                0 -> parseNotificationData(data)
+                1 -> parseAppAttributes(data)
             }
         }
 
@@ -254,16 +254,13 @@ class MainActivity : AppCompatActivity() {
         ) {
             super.onDescriptorWrite(gatt, descriptor, status)
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                if (descriptor.characteristic.uuid.equals(ANC_DATA_SOURCE_UUID)) {
+                if (descriptor.characteristic.uuid == ANC_DATA_SOURCE_UUID) {
                     subscribeToNotifications(
                         gatt.getService(ANC_SERVICE_UUID)
-                            .getCharacteristic(ANC_NOTIFICATION_SOURCE_CHARACTERISTIC_UUID)
+                            ?.getCharacteristic(ANC_NOTIFICATION_SOURCE_CHARACTERISTIC_UUID)
                     )
                     Log.d(TAG, "Data Source Subscribe Success")
-                } else if (descriptor.characteristic.uuid.equals(
-                        ANC_NOTIFICATION_SOURCE_CHARACTERISTIC_UUID
-                    )
-                ) {
+                } else if (descriptor.characteristic.uuid == ANC_NOTIFICATION_SOURCE_CHARACTERISTIC_UUID) {
                     Log.d(TAG, "Notification Source Subscribe Success")
                 }
             }
@@ -275,12 +272,6 @@ class MainActivity : AppCompatActivity() {
             status: Int
         ) {
             super.onCharacteristicWrite(gatt, characteristic, status)
-            if (characteristic != null) {
-                Log.d(
-                    TAG,
-                    "CharacteristicWrite data: ${Util.bytesToHexString(characteristic.value)}"
-                )
-            }
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 Log.d(TAG, "Request sent successfully")
             } else {
@@ -294,30 +285,14 @@ class MainActivity : AppCompatActivity() {
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun subscribeToNotifications(characteristic: BluetoothGattCharacteristic?) {
         bluetoothGatt?.setCharacteristicNotification(characteristic, true)
-        val descriptor = characteristic?.getDescriptor(CLIENT_CONFIG_DESCRIPTOR_UUID)
-        descriptor?.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-        bluetoothGatt?.writeDescriptor(descriptor)
+        characteristic?.getDescriptor(CLIENT_CONFIG_DESCRIPTOR_UUID)?.apply {
+            value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+            bluetoothGatt?.writeDescriptor(this)
+        }
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun parseNotificationEvent(data: ByteArray) {
-        if (data.isEmpty()) {
-            Log.e(TAG, "Received empty notification event")
-            return
-        }
-        Log.d(
-            TAG,
-            "Received Event: Length: ${data.size}  " +
-                    "EventData: ${
-                        data.joinToString(", ") {
-                            String.format(
-                                "%02X",
-                                it.toInt() and 0xFF
-                            )
-                        }
-                    }"
-        )
-
         val notificationEvent = NotificationEvent(
             data[0].toInt(),
             data[1].toInt(),
@@ -325,32 +300,6 @@ class MainActivity : AppCompatActivity() {
             data[3].toInt(),
             data.copyOfRange(4, 8)
         )
-        if (notificationEvent.eventId == 0) {
-            Log.d(TAG, "EventId: Add")
-            notificationEvents.add(notificationEvent)
-            if (!isRequestInProgress) {
-                requestNotificationAttributes(notificationEvent.notificationUID)
-            }
-
-        } else if (notificationEvent.eventId == 1) {
-            //更改
-            Log.d(TAG, "EventId: Modified")
-        } else if (notificationEvent.eventId == 2) {
-            //删除
-            Log.d(TAG, "EventId: Removed")
-        }
-
-        if (notificationEvent.eventFlags and 0x01 != 0) {
-            Log.d(TAG, "isSilent Notification")
-        } else if (notificationEvent.eventFlags and 0x02 != 0) {
-            Log.d(TAG, "Important Notification")
-        } else if (notificationEvent.eventFlags and 0x04 != 0) {
-            Log.d(TAG, "PreExisting Notification")
-        } else if (notificationEvent.eventFlags and 0x08 != 0) {
-            Log.d(TAG, "PositiveAction Notification")
-        } else if (notificationEvent.eventFlags and 0x10 != 0) {
-            Log.d(TAG, "NegativeAction Notification")
-        }
         Log.d(
             TAG, "Event ID: ${data[0]}" +
                     " Event Flags: ${data[1]}" +
@@ -358,13 +307,21 @@ class MainActivity : AppCompatActivity() {
                     " Category Count: ${data[3]}" +
                     " NotificationUID: ${Util.bytesToHexString(data.copyOfRange(4, 8))}"
         )
+
+        when (notificationEvent.eventId) {
+            0, 1 -> {
+                notificationEvents.add(notificationEvent)
+                if (!isRequestInProgress) {
+                    requestNotificationAttributes(notificationEvent.notificationUID)
+                }
+            }
+            2 -> deleteData(notificationEvent.notificationUID)
+        }
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun parseNotificationData(data: ByteArray) {
         Log.d(TAG, "data: ${Util.bytesToHexString(data)}")
-
-        // 解析 NotificationUID
         val notificationUID = data.sliceArray(1..4).reversed()
             .fold(0) { acc, byte -> (acc shl 8) or (byte.toInt() and 0xFF) }
         Log.d(TAG, "UID: $notificationUID")
@@ -381,10 +338,12 @@ class MainActivity : AppCompatActivity() {
         var positiveActionLabel = ""
         var negativeActionLabel = ""
 
-        // 辅助函数：解析字段
-        fun parseField(tag: Byte): String {
+        fun parseField(): String {
             val len =
                 (data[tagIndex + 1].toInt() and 0xFF) + (data[tagIndex + 2].toInt() and 0xFF) * 256
+            if (tagIndex + 3 + len > data.size) {
+                throw IndexOutOfBoundsException("Attempted to read beyond the end of the data array")
+            }
             val fieldValue = String(data, tagIndex + 3, len)
             tagIndex += 3 + len
             return fieldValue
@@ -396,43 +355,44 @@ class MainActivity : AppCompatActivity() {
                 0x00.toByte() -> { // AppIdentifier
                     appIdentifierLen =
                         (data[tagIndex + 1].toInt() and 0xFF) + (data[tagIndex + 2].toInt() and 0xFF) * 256
-                    appIdentifier = parseField(tag); Log.d(TAG, "AppIdentifier: $appIdentifier")
+                    appIdentifier = parseField(); Log.d(TAG, "AppIdentifier: $appIdentifier")
                 }
+
                 0x01.toByte() -> { //title
-                    title = parseField(tag); Log.d(TAG, "title = $title")
+                    title = parseField(); Log.d(TAG, "title = $title")
                 }
 
                 0x02.toByte() -> { //subtitle
-                    subtitle = parseField(tag); Log.d(TAG, "subtitle = $subtitle")
+                    subtitle = parseField(); Log.d(TAG, "subtitle = $subtitle")
                 }
 
                 0x03.toByte() -> { //message
-                    msg = parseField(tag); Log.d(TAG, "message = $msg")
+                    msg = parseField(); Log.d(TAG, "message = $msg")
                 }
 
                 0x04.toByte() -> { //messageSize
-                    messageSize = parseField(tag); Log.d(TAG, "messageSize = $messageSize")
+                    messageSize = parseField(); Log.d(TAG, "messageSize = $messageSize")
                 }
 
                 0x05.toByte() -> { //timeStamp
-                    timeStamp = parseField(tag); Log.d(TAG, "timeStamp = $timeStamp")
+                    timeStamp = parseField(); Log.d(TAG, "timeStamp = $timeStamp")
                 }
 
                 0x06.toByte() -> { //positiveActionLabel
-                    positiveActionLabel = parseField(tag); Log.d(
+                    positiveActionLabel = parseField(); Log.d(
                         TAG,
                         "positiveActionLabel = $positiveActionLabel"
                     )
                 }
 
                 0x07.toByte() -> { //negativeActionLabel
-                    negativeActionLabel = parseField(tag); Log.d(
+                    negativeActionLabel = parseField(); Log.d(
                         TAG,
                         "negativeActionLabel = $negativeActionLabel"
                     )
                 }
 
-                else -> tagIndex += 1 // 跳过不需要解析的字段
+                else -> tagIndex += 1
             }
         }
 
@@ -443,7 +403,7 @@ class MainActivity : AppCompatActivity() {
             subtitle,
             msg,
             messageSize,
-            "",
+            timeStamp,
             positiveActionLabel,
             negativeActionLabel
         )
@@ -468,91 +428,45 @@ class MainActivity : AppCompatActivity() {
 
         val getNotificationAttribute = byteArrayOf(
             0x00.toByte(), //commandId
-            data[0],
-            data[1],
-            data[2],
-            data[3], //NotificationUID
+            *data
+        ) + byteArrayOf(
             0x00.toByte(),
-
-            0x01.toByte(),
-            0xFF.toByte(), //AttributeID --NotificationAttributeIDTitle
+            0x01.toByte(), //AttributeID --NotificationAttributeIDTitle
             0xFF.toByte(),
-
-            0x02.toByte(),
-            0xFF.toByte(), //AttributeID --NotificationAttributeIDSubtitle
             0xFF.toByte(),
-
-            0x03.toByte(),
-            0xFF.toByte(), //AttributeID --NotificationAttributeIDMessage
+            0x02.toByte(), //AttributeID --NotificationAttributeIDSubtitle
             0xFF.toByte(),
-
+            0xFF.toByte(),
+            0x03.toByte(), //AttributeID --NotificationAttributeIDMessage
+            0xFF.toByte(),
+            0xFF.toByte(),
             0x04.toByte(), //AttributeID --NotificationAttributeIDMessageSize
-
             0x05.toByte(), //AttributeID --NotificationAttributeIDDate
-
             0x06.toByte(), //AttributeID --NotificationAttributeIDPositiveActionLabel
-
             0x07.toByte(), //AttributeID --NotificationAttributeIDNegativeActionLabel
         )
-        Log.i(TAG, "send notify attribute request = " + Util.bytesToHexString(getNotificationAttribute))
-        if (bluetoothGatt != null) {
-            val service = bluetoothGatt?.getService(ANC_SERVICE_UUID)
-            if (service == null) {
-                Log.d(TAG, "cant find service")
-            } else {
-                Log.d(TAG, "find service")
-                val characteristic =
-                    service.getCharacteristic(ANC_CONTROL_POINT_CHARACTERISTIC_UUID)
-                if (characteristic == null) {
-                    Log.d(TAG, "cant find chara")
-                } else {
-                    Log.d(TAG, "find chara")
-                    characteristic.value = getNotificationAttribute
-                    bluetoothGatt?.writeCharacteristic(characteristic)
-                }
-            }
-        }
+        Log.d(
+            TAG,
+            "send notify attribute request = " + Util.bytesToHexString(getNotificationAttribute)
+        )
+        sendRequest(getNotificationAttribute)
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun requestAppAttributes(appIdentifier: String) {
-        val commandId = byteArrayOf(
-            0x01.toByte()
-        )
+        val commandId = byteArrayOf(0x01.toByte())
         val appIdentifierArray = appIdentifier.toByteArray()
-        val appAttributeIDArray = byteArrayOf(
-            0x00.toByte()
-        )
+        val appAttributeIDArray = byteArrayOf(0x00.toByte())
         val combinedByteArray = commandId + appIdentifierArray + byteArrayOf(0x00.toByte()) + appAttributeIDArray
-
         Log.i(TAG, "send app attribute request = " + Util.bytesToHexString(combinedByteArray))
-        if (bluetoothGatt != null) {
-            val service = bluetoothGatt?.getService(ANC_SERVICE_UUID)
-            if (service == null) {
-                Log.d(TAG, "cant find service")
-            } else {
-                Log.d(TAG, "find service")
-                val characteristic =
-                    service.getCharacteristic(ANC_CONTROL_POINT_CHARACTERISTIC_UUID)
-                if (characteristic == null) {
-                    Log.d(TAG, "cant find chara")
-                } else {
-                    Log.d(TAG, "find chara")
-                    characteristic.value = combinedByteArray
-                    bluetoothGatt?.writeCharacteristic(characteristic)
-                }
-            }
-        }
-
+        sendRequest(combinedByteArray)
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun parseAppAttributes(data: ByteArray) {
-        Log.d(TAG, "CommandID = ${data[0]}")
         Log.d(TAG, "App attributes response: ${Util.bytesToHexString(data)}")
-        // 解析 DisplayName 属性
-        Log.d(TAG, "len = ${mNotificationData.attributeID.appIdentifierLen}")
-        var tagIndex = 1 + mNotificationData.attributeID.appIdentifierLen + 1 + 1 //AttributeID + NULL-terminated
+        var tagIndex =
+            1 + mNotificationData.attributeID.appIdentifierLen + 1 + 1 //AttributeID + NULL-terminated
         val displayNameLength =
             (data[tagIndex].toInt() and 0xFF) + (data[tagIndex + 1].toInt() and 0xFF) * 256
         tagIndex += 2
@@ -561,7 +475,7 @@ class MainActivity : AppCompatActivity() {
         runOnUiThread {
             mNotificationData.displayName = displayName
             notifications.add(mNotificationData)
-            notificationAdapter.notifyItemInserted(notifications.size)
+            notificationAdapter?.notifyItemInserted(notifications.size)
             notificationEvents.removeAt(0)
 
             if (notificationEvents.isNotEmpty()) {
@@ -572,9 +486,37 @@ class MainActivity : AppCompatActivity() {
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    private fun sendNotifyAction(uid: ByteArray, action: Int) {
+        val combinedByteArray = byteArrayOf(0x02.toByte()) + uid + action.toByte()
+        Log.i(TAG, "send notify action = ${Util.bytesToHexString(combinedByteArray)}")
+        sendRequest(combinedByteArray)
+    }
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    private fun sendRequest(data: ByteArray) {
+        bluetoothGatt?.getService(ANC_SERVICE_UUID)
+            ?.getCharacteristic(ANC_CONTROL_POINT_CHARACTERISTIC_UUID)
+            ?.apply {
+                value = data
+                bluetoothGatt?.writeCharacteristic(this)
+            }
+    }
+
+    private fun deleteData(uid: ByteArray) {
+        runOnUiThread {
+            val position = notifications.indexOfFirst { it.notificationUID.contentEquals(uid) }
+            if (position != -1) {
+                notifications.removeAt(position)
+                notificationAdapter?.notifyItemRemoved(position)
+            }
+        }
+
+    }
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     override fun onDestroy() {
         super.onDestroy()
-        bluetoothGatt?.close() // 关闭连接
+        bluetoothGatt?.close()
     }
 
 }

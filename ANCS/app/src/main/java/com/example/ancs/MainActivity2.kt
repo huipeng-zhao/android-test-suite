@@ -63,7 +63,7 @@ class MainActivity2: AppCompatActivity() {
             orientation = LinearLayoutManager.VERTICAL
         }
 
-        notificationAdapter = NotificationAdapter2(ancsClient.notification.value) { onItemClicked(it) }
+        notificationAdapter = NotificationAdapter2 { onItemClicked(it) }
         recyclerView?.adapter = notificationAdapter
 
         connectButton?.setOnClickListener { startConnected() }
@@ -117,7 +117,7 @@ class MainActivity2: AppCompatActivity() {
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun setupObservers() {
         lifecycleScope.launch {
-            ancsClient.notification.collect { notification ->
+            ancsClient.notifications.collect { notification ->
                 notificationAdapter?.submitList(notification)
             }
         }

@@ -9,7 +9,6 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 
 class NotificationAdapter2(
-    private var notifications: List<NotificationData>,
     private val itemClickListener: (NotificationData) -> Unit
 ) : ListAdapter<NotificationData, NotificationAdapter2.NotificationViewHolder>(NotificationDiffCallback()) {
 

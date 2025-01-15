@@ -24,14 +24,14 @@ class AncsClient(private val context: Context) : BluetoothGattCallback() {
     private val myConnectedDevice = MutableStateFlow<BluetoothDevice?>(null)
     private val myNotification = MutableStateFlow<List<NotificationData>>(emptyList())
     val connectedDevice: StateFlow<BluetoothDevice?> = myConnectedDevice
-    val notification: StateFlow<List<NotificationData>> = myNotification
+    val notifications: StateFlow<List<NotificationData>> = myNotification
 
-    private var bluetoothGatt: BluetoothGatt? = null
+    private var myBluetoothGatt: BluetoothGatt? = null
     private var isRequestInProgress = false
-    private lateinit var mNotificationData: NotificationData
-    private val notificationEvents = mutableListOf<NotificationEvent>()
-    private val notifications = mutableListOf<NotificationData>()
-    private val handler = Handler(Looper.getMainLooper())
+    private lateinit var myNotificationData: NotificationData
+    private val myNotificationEvents = mutableListOf<NotificationEvent>()
+    private val myNotifications = mutableListOf<NotificationData>()
+    private val myHandler = Handler(Looper.getMainLooper())
 
     companion object {
         private const val TAG = "AncsClient"
@@ -61,14 +61,14 @@ class AncsClient(private val context: Context) : BluetoothGattCallback() {
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun connect(device: BluetoothDevice) {
-        bluetoothGatt = device.connectGatt(context, false, this)
+        myBluetoothGatt = device.connectGatt(context, false, this)
         Log.d(TAG, "connect: ${myConnectedDevice.value?.name}")
         myConnectedDevice.value = device
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun disconnect() {
-        bluetoothGatt?.close()
+        myBluetoothGatt?.close()
         Log.d(TAG, "disconnect")
         myConnectedDevice.value = null
     }
@@ -83,11 +83,11 @@ class AncsClient(private val context: Context) : BluetoothGattCallback() {
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun sendRequest(data: ByteArray) {
         Log.d(TAG, "sendRequest: ${Util.bytesToHexString(data)}")
-        bluetoothGatt?.getService(ANC_SERVICE_UUID)
+        myBluetoothGatt?.getService(ANC_SERVICE_UUID)
             ?.getCharacteristic(ANC_CONTROL_POINT_CHARACTERISTIC_UUID)
             ?.apply {
                 value = data
-                bluetoothGatt?.writeCharacteristic(this)
+                myBluetoothGatt?.writeCharacteristic(this)
             }
     }
 
@@ -173,11 +173,11 @@ class AncsClient(private val context: Context) : BluetoothGattCallback() {
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun subscribeToNotifications(characteristic: BluetoothGattCharacteristic?) {
-        bluetoothGatt?.setCharacteristicNotification(characteristic, true)
+        myBluetoothGatt?.setCharacteristicNotification(characteristic, true)
         Log.d(TAG, "subscribeToNotifications")
         characteristic?.getDescriptor(CLIENT_CONFIG_DESCRIPTOR_UUID)?.apply {
             value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-            bluetoothGatt?.writeDescriptor(this)
+            myBluetoothGatt?.writeDescriptor(this)
         }
     }
 
@@ -201,9 +201,8 @@ class AncsClient(private val context: Context) : BluetoothGattCallback() {
 
         when (notificationEvent.eventId) {
             0, 1 -> {
-                notificationEvents.add(notificationEvent)
+                myNotificationEvents.add(notificationEvent)
                 if (!isRequestInProgress) {
-//                    requestNotificationAttributes(notificationEvent.notificationUID)
                     delayRequestNotificationAttributes(notificationEvent.notificationUID)
                 }
             }
@@ -253,7 +252,7 @@ class AncsClient(private val context: Context) : BluetoothGattCallback() {
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun delayRequestNotificationAttributes(uid: ByteArray) {
-        handler.postDelayed({
+        myHandler.postDelayed({
             requestNotificationAttributes(uid)
         }, 500)
     }
@@ -344,7 +343,7 @@ class AncsClient(private val context: Context) : BluetoothGattCallback() {
             positiveActionLabel,
             negativeActionLabel
         )
-        mNotificationData = NotificationData(
+        myNotificationData = NotificationData(
             commandId,
             byteArrayOf(data[1], data[2], data[3], data[4]),
             attributeID,
@@ -352,13 +351,13 @@ class AncsClient(private val context: Context) : BluetoothGattCallback() {
         )
 
         val existingNotification =
-            notifications.firstOrNull { it.attributeID.notificationAttributeIDAppIdentifier == appIdentifier }
+            myNotifications.firstOrNull { it.attributeID.notificationAttributeIDAppIdentifier == appIdentifier }
         if (existingNotification?.displayName.isNullOrEmpty()) {
             requestAppAttributes(appIdentifier)
         } else {
             Log.d(TAG, "DisplayName is already set, skipping requestAppAttributes")
             if (existingNotification != null) {
-                mNotificationData.displayName = existingNotification.displayName
+                myNotificationData.displayName = existingNotification.displayName
                 handleNotificationData()
             }
         }
@@ -383,21 +382,21 @@ class AncsClient(private val context: Context) : BluetoothGattCallback() {
     private fun parseAppAttributes(data: ByteArray) {
         Log.d(TAG, "parseAppAttributes: data = ${Util.bytesToHexString(data)}")
         var tagIndex =
-            1 + mNotificationData.attributeID.appIdentifierLen + 1 + 1 //AttributeID + NULL-terminated
+            1 + myNotificationData.attributeID.appIdentifierLen + 1 + 1 //AttributeID + NULL-terminated
         val displayNameLength =
             (data[tagIndex].toInt() and 0xFF) + (data[tagIndex + 1].toInt() and 0xFF) * 256
         tagIndex += 2
         val displayName = String(data, tagIndex, displayNameLength)
         Log.d(TAG, "parseAppAttributes: Display Name = $displayName")
-        mNotificationData.displayName = displayName
+        myNotificationData.displayName = displayName
         handleNotificationData()
     }
 
     private fun deleteData(uid: ByteArray) {
-        val position = notifications.indexOfFirst { it.notificationUID.contentEquals(uid) }
+        val position = myNotifications.indexOfFirst { it.notificationUID.contentEquals(uid) }
         if (position != -1) {
             Log.d(TAG, "deleteData: uid = ${Util.bytesToHexString(uid)}, position = $position")
-            notifications.removeAt(position)
+            myNotifications.removeAt(position)
             myNotification.value =
                 myNotification.value.filter { !it.notificationUID.contentEquals(uid) }
         }
@@ -405,14 +404,13 @@ class AncsClient(private val context: Context) : BluetoothGattCallback() {
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun handleNotificationData() {
-        notifications.add(mNotificationData)
-        myNotification.value += mNotificationData
-        notificationEvents.removeAt(0)
+        myNotifications.add(myNotificationData)
+        myNotification.value += myNotificationData
+        myNotificationEvents.removeAt(0)
 
-        if (notificationEvents.isNotEmpty()) {
-            Log.d(TAG, "parseAppAttributes: EventSize = ${notificationEvents.size}")
-            val event = notificationEvents.first()
-//            requestNotificationAttributes(event.notificationUID)
+        if (myNotificationEvents.isNotEmpty()) {
+            Log.d(TAG, "parseAppAttributes: EventSize = ${myNotificationEvents.size}")
+            val event = myNotificationEvents.first()
             delayRequestNotificationAttributes(event.notificationUID)
         }
     }

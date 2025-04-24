@@ -11,6 +11,7 @@ import android.provider.Settings
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresPermission
 import androidx.appcompat.app.AlertDialog
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
@@ -27,6 +28,7 @@ class MainActivity : ComponentActivity() {
             Manifest.permission.ACCESS_FINE_LOCATION,
             Manifest.permission.ACCESS_COARSE_LOCATION,
         )
+
     }
 
     private lateinit var binding: ActivityMainBinding
@@ -34,6 +36,8 @@ class MainActivity : ComponentActivity() {
 
     private var uplinkActive   = false
     private var downlinkActive = false
+
+    private val uplinkBtnDebounceMs = 5000L // btn等待时长：5秒
 
     @SuppressLint("SetTextI18n")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -67,9 +71,22 @@ class MainActivity : ComponentActivity() {
         binding.btnScan.setOnClickListener { bleManager.startScan() }
 
         // —— 接收数据按钮（上行） ——
-            binding.btnTestUplink.setOnClickListener {
+        binding.btnTestUplink.setOnClickListener {
+//            bleManager.stopScan()
+//            bleManager.restartScan()
             uplinkActive = !uplinkActive   // 切换状态
             updateBtnStyle(binding.btnTestUplink, uplinkActive)
+
+            binding.btnTestUplink.isEnabled = false
+            binding.btnTestDownlink.isEnabled = false
+            binding.btnTestUplink.text = "接收中...不可点击"
+            binding.btnTestDownlink.text = "防触碰...不可点击"
+
+            // 5 秒后恢复按钮
+            binding.btnTestUplink.postDelayed({
+                binding.btnTestUplink.isEnabled = true
+                binding.btnTestUplink.text = "停止接收"
+            }, uplinkBtnDebounceMs)
             if (uplinkActive) {
                 // 启动上行测试
                 bleManager.startUplinkTest()
@@ -80,15 +97,40 @@ class MainActivity : ComponentActivity() {
                     bleManager.stopDownlinkTest()
                 }
             } else {
-                // 停止上行测试
+                // 停止上行：按钮动画+文案
+                binding.btnTestUplink.isEnabled = false
+                binding.btnTestUplink.text = "停止中...不可点击"
+                binding.btnTestDownlink.text = "防触碰...不可点击"
                 bleManager.stopUplinkTest()
+
+                // 5 秒后恢复按钮
+                binding.btnTestUplink.postDelayed({
+                    binding.btnTestUplink.isEnabled = true
+                    binding.btnTestDownlink.isEnabled = true
+                    binding.btnTestUplink.text = "接收数据"
+                    binding.btnTestDownlink.text = "发送数据"
+                    updateBtnStyle(binding.btnTestUplink, false)
+                }, uplinkBtnDebounceMs)
             }
         }
 
         // —— 发送数据按钮（下行） ——
         binding.btnTestDownlink.setOnClickListener {
+//            bleManager.stopScan()
+//            bleManager.restartScan()
             downlinkActive = !downlinkActive
             updateBtnStyle(binding.btnTestDownlink, downlinkActive)
+
+            binding.btnTestDownlink.isEnabled = false
+            binding.btnTestUplink.isEnabled = false
+            binding.btnTestDownlink.text = "发送中...不可点击"
+            binding.btnTestUplink.text = "防触碰...不可点击"
+
+            // 5 秒后恢复按钮
+            binding.btnTestDownlink.postDelayed({
+                binding.btnTestDownlink.isEnabled = true
+                binding.btnTestDownlink.text = "停止发送"
+            }, uplinkBtnDebounceMs)
             if (downlinkActive) {
                 bleManager.startDownlinkTest()
                 if (uplinkActive) {
@@ -97,12 +139,34 @@ class MainActivity : ComponentActivity() {
                     bleManager.stopUplinkTest()
                 }
             } else {
+                binding.btnTestDownlink.isEnabled = false
+                binding.btnTestDownlink.text = "停止中...不可点击"
+                binding.btnTestUplink.text = "防触碰...不可点击"
                 bleManager.stopDownlinkTest()
+
+                // 5 秒后恢复按钮
+                binding.btnTestDownlink.postDelayed({
+                    binding.btnTestDownlink.isEnabled = true
+                    binding.btnTestUplink.isEnabled = true
+                    binding.btnTestDownlink.text = "发送数据"
+                    binding.btnTestUplink.text = "接收数据"
+                    updateBtnStyle(binding.btnTestDownlink, false)
+                }, uplinkBtnDebounceMs)
             }
         }
     }
 
-    /** 根据 active 状态设置按钮背景：true = 蓝色，false = 透明 */
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    @SuppressLint("SetTextI18n")
+    override fun onStop() {
+        Log.d(TAG, "onStop() called!")
+        super.onStop()
+        bleManager.stopTest()
+        bleManager.stopScan()
+        finish()
+    }
+
+    /** 根据 active 状态设置按钮背景：true = 蓝色，false = 灰色 */
     private fun updateBtnStyle(button: android.widget.Button, active: Boolean) {
         if (active) {
             button.setBackgroundColor(Color.Blue.toArgb())

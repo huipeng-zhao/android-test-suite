@@ -7,6 +7,7 @@ import ai.looki.ble.common.Constants.CHAR_UPLINK_UUID
 import ai.looki.ble.common.Constants.CMD_START_DOWNLINK
 import ai.looki.ble.common.Constants.CMD_START_UPLINK
 import ai.looki.ble.common.Constants.CMD_STOP_DOWNLINK
+import ai.looki.ble.common.Constants.CMD_STOP_TEST
 import ai.looki.ble.common.Constants.CMD_STOP_UPLINK
 import ai.looki.ble.common.Constants.DEFAULT_MTU
 import ai.looki.ble.common.Constants.DEVO_TAG
@@ -40,7 +41,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
 import java.util.UUID
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledFuture
 
 class BlePeripheralManager(
     private val context: Context,
@@ -78,6 +82,10 @@ class BlePeripheralManager(
     fun setDescriptorStatusCallback(cb: (String) -> Unit) {
         descriptorStatusCallback = cb
     }
+
+    // 定时调度器，避免协程 delay 阻塞导致内存峰值
+    private val uplinkScheduler = Executors.newSingleThreadScheduledExecutor()
+    private var uplinkFuture: ScheduledFuture<*>? = null
 
     companion object {
         private val TAG = DEVO_TAG + BlePeripheralManager::class.java.simpleName
@@ -180,11 +188,11 @@ class BlePeripheralManager(
             DOWNLINK_UUID,
             BluetoothGattCharacteristic.PROPERTY_WRITE,
             BluetoothGattCharacteristic.PERMISSION_WRITE
-        )
-//        ).apply {
-//            // —— 新增：无响应写入 ——
-//            writeType = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
-//        }
+//        )
+        ).apply {
+            // —— 新增：无响应写入 ——
+            writeType = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
+        }
         service.addCharacteristic(downlinkChar)
 
         gattServer?.addService(service)
@@ -217,6 +225,7 @@ class BlePeripheralManager(
             )
             if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 Log.d(TAG, "onConnectionStateChange() 设备断开时停止测试")
+                descriptorStatusCallback?.invoke("设备已断开，请在Phone端点击[开始扫描]重新链接")
                 stopCurrentTest() // 设备断开时停止测试
             }
             Log.d(TAG, "onConnectionStateChange() called")
@@ -246,7 +255,7 @@ class BlePeripheralManager(
                 gattServer?.sendResponse(device, requestId,
                     GATT_SUCCESS, 0, null)
                 Log.d(TAG, "CCCD 写入成功，已开启/关闭通知")
-                descriptorStatusCallback?.invoke("CCCD 写入成功，通知：已开启通知")
+                descriptorStatusCallback?.invoke("CCCD 写入成功，通知：已开启，请开始测试接收/发送数据")
             } else {
                 gattServer?.sendResponse(device, requestId,
                     BluetoothGatt.GATT_FAILURE, 0, null)
@@ -271,6 +280,7 @@ class BlePeripheralManager(
                         CMD_START_DOWNLINK -> startDownlinkTest()
                         CMD_STOP_UPLINK -> stopUpLink() // 新增停止逻辑
                         CMD_STOP_DOWNLINK -> stopDownLink() // 新增停止逻辑
+                        CMD_STOP_TEST -> stopCurrentTest() // 新增停止逻辑
                     }
                     gattServer?.sendResponse(device, requestId, GATT_SUCCESS, 0, null)
                 }
@@ -314,23 +324,85 @@ class BlePeripheralManager(
     //--------------------------------------------------
     // 上行测试逻辑
     //--------------------------------------------------
+//    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+//    private fun startUplinkTest() {
+//        uplinkTester.start()
+//        // 回调给 UI (txPhy->rxPhy 顺序)
+//        uplinkTester.setCallback { mbps -> uplinkCallback?.invoke(mbps.toDouble()) } // TODO: or use downlink
+//
+//        // 循环发送 Notify
+//        isUplinkActive = true
+//        uplinkJob = CoroutineScope(Dispatchers.IO).launch {
+//            val chunk = ByteArray(DEFAULT_MTU - 3) { TEST_DATA_BYTE }
+//            while (isUplinkActive && isActive) {
+//                uplinkChar?.let {
+//                    it.value = chunk
+//                    gattServer?.notifyCharacteristicChanged(connectedDevice, it, false)
+//                    uplinkTester.addBytes(chunk.size)
+//                }
+//                delay(2) // TODO: or use 1 r more
+//            }
+//        }
+//    }
+
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun startUplinkTest() {
         uplinkTester.start()
-        // 回调给 UI (txPhy->rxPhy 顺序)
-        uplinkTester.setCallback { mbps -> uplinkCallback?.invoke(mbps.toDouble()) } // TODO: or use downlink
+        uplinkTester.setCallback { mbps ->
+            uplinkCallback?.invoke(mbps.toDouble())
+        }
 
-        // 循环发送 Notify
+        // 预分配内存块（避免循环内重复创建）
+        val chunk = ByteArray(DEFAULT_MTU - 3).apply {
+            fill(TEST_DATA_BYTE)
+        }
+
+        // 使用协同作用域管理生命周期
         isUplinkActive = true
-        uplinkJob = CoroutineScope(Dispatchers.IO).launch {
-            val chunk = ByteArray(DEFAULT_MTU - 3) { TEST_DATA_BYTE }
-            while (isUplinkActive && isActive) {
-                uplinkChar?.let {
-                    it.value = chunk
-                    gattServer?.notifyCharacteristicChanged(connectedDevice, it, false)
-                    uplinkTester.addBytes(chunk.size)
+        uplinkJob = CoroutineScope(Dispatchers.Default).launch {
+            var exceptionCount = 0
+            try {
+                while (isUplinkActive && isActive) {
+                    uplinkChar?.let { characteristic ->
+                        // 复用已分配的字节数组
+                        characteristic.value = chunk
+
+                        // 添加流量控制
+                        if (gattServer?.notifyCharacteristicChanged(
+                                connectedDevice,
+                                characteristic,
+                                false
+                            ) == false
+                        ) {
+                            delay(1) // 发送失败时增加等待时间
+                            return@launch
+                        }
+
+                        uplinkTester.addBytes(chunk.size)
+
+                        // 动态调整发送间隔（根据MTU大小优化）
+                        val delayTime = when (DEFAULT_MTU) {
+                            in 0..100 -> 5L
+                            in 101..200 -> 3L
+                            else -> 2L
+                        }
+                        delay(delayTime)
+
+                        // 每30ms主动让出线程
+                        if (System.currentTimeMillis() % 30 == 0L) {
+                            yield()
+                        }
+                    } ?: run {
+                        Log.w(TAG, "Uplink characteristic is null")
+                        stopUpLink()
+                        return@launch
+                    }
                 }
-                delay(1) // TODO: or use 1 r more
+            } catch (e: Exception) {
+                if (exceptionCount++ > 3) {
+                    Log.e(TAG, "Uplink failed repeatedly: ${e.message}")
+                    stopUpLink()
+                }
             }
         }
     }

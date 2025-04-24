@@ -9,6 +9,7 @@ import ai.looki.ble.common.Constants.CHAR_DOWNLINK_UUID
 import ai.looki.ble.common.Constants.CMD_START_UPLINK
 import ai.looki.ble.common.Constants.CMD_START_DOWNLINK
 import ai.looki.ble.common.Constants.CMD_STOP_DOWNLINK
+import ai.looki.ble.common.Constants.CMD_STOP_TEST
 import ai.looki.ble.common.Constants.CMD_STOP_UPLINK
 import ai.looki.ble.common.Constants.DEFAULT_MTU
 import ai.looki.ble.common.Constants.TEST_DATA_BYTE
@@ -31,10 +32,14 @@ import android.util.Log
 import androidx.annotation.RequiresPermission
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.yield
 import java.util.UUID
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledFuture
 
 class BleCentralManager(private val context: Context) {
     companion object {
@@ -112,6 +117,25 @@ class BleCentralManager(private val context: Context) {
         scanner.startScan(listOf(filter), ScanSettings.Builder().build(), scanCallback)
     }
 
+    /** 暴露给外部：停止当前的 BLE 扫描 */
+    @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
+    fun stopScan() {
+        Log.d(TAG, "stopScan() called")
+        bluetoothAdapter.bluetoothLeScanner.stopScan(scanCallback)
+    }
+
+    /** 暴露给外部：按原有 filter 和 settings 重启扫描 */
+    @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
+    fun restartScan() {
+        Log.d(TAG, "restartScan() called")
+        val scanner = bluetoothAdapter.bluetoothLeScanner
+        val filter = ScanFilter.Builder()
+            .setServiceUuid(ParcelUuid(UUID_SEVRICE_UUID))
+            .build()
+        val settings = ScanSettings.Builder().build()
+        scanner.startScan(listOf(filter), settings, scanCallback)
+    }
+
     private val scanCallback: ScanCallback = object : ScanCallback() {
         @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
         override fun onScanResult(callbackType: Int, result: ScanResult?) {
@@ -140,6 +164,7 @@ class BleCentralManager(private val context: Context) {
                 }
                 BluetoothProfile.STATE_DISCONNECTED -> {
                     Log.d(TAG, "连接断开，status: $status")
+                    statusCallback?.invoke("连接断开，status: $status，请确认devo端是否启动，并点击[开始扫描]重新链接")
                     stopTest()
                 }
             }
@@ -161,7 +186,7 @@ class BleCentralManager(private val context: Context) {
                 // 再次保存
                 this@BleCentralManager.gatt = gatt
                 Log.d(TAG, "服务发现成功")
-                statusCallback?.invoke("状态：服务发现成功，请确认 DEVO 端")
+                statusCallback?.invoke("状态：服务发现成功，请确认 DEVO 端状态")
 
                 val service = gatt.getService(UUID_SEVRICE_UUID)
                 controlChar = service.getCharacteristic(CONTROL_UUID)
@@ -205,7 +230,8 @@ class BleCentralManager(private val context: Context) {
         ) {
             // 当 STOP 指令写入完成后，再断开
             if (characteristic.uuid.toString()==CHAR_CONTROL_UUID)
-                if ((characteristic.value.getOrNull(0)== CMD_STOP_UPLINK) || (characteristic.value.getOrNull(0)== CMD_STOP_DOWNLINK))  {
+                if (characteristic.value.getOrNull(0)== CMD_STOP_TEST)  {
+                Log.d(TAG, "onCharacteristicWrite(): stop test and release!")
                 gatt.disconnect()
                 gatt.close()
             }
@@ -236,6 +262,37 @@ class BleCentralManager(private val context: Context) {
         gatt?.writeCharacteristic(controlChar)
     }
 
+//    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+//    fun startDownlinkTest() {
+//        downlinkTester.start()
+//        downlinkTester.setCallback { mbps -> downlinkCallback?.invoke(mbps.toDouble()) }
+//
+//        controlChar?.value = byteArrayOf(CMD_START_DOWNLINK)
+//        gatt?.writeCharacteristic(controlChar)
+//
+//        isTestingDownlink = true
+//        coroutineScope.launch(Dispatchers.IO) {
+//            val chunk = ByteArray(DEFAULT_MTU-3){ TEST_DATA_BYTE }
+//            while (isTestingDownlink) {
+//                downlinkChar?.apply { writeType = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE; value = chunk }
+//                gatt?.writeCharacteristic(downlinkChar)
+//                downlinkTester.addBytes(chunk.size)
+//                delay(2) // or use 1 or more
+//            }
+//        }
+//    }
+    private val downlinkScheduler = Executors.newSingleThreadScheduledExecutor()
+    private var downlinkFuture: ScheduledFuture<*>? = null
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    private fun writeControlCommand(cmd: Byte) {
+        controlChar?.apply {
+            value = byteArrayOf(cmd)
+            writeType = BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+        }
+        gatt?.writeCharacteristic(controlChar)
+    }
+
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun startDownlinkTest() {
         downlinkTester.start()
@@ -246,12 +303,43 @@ class BleCentralManager(private val context: Context) {
 
         isTestingDownlink = true
         coroutineScope.launch(Dispatchers.IO) {
-            val chunk = ByteArray(DEFAULT_MTU-3){ TEST_DATA_BYTE }
+            // 1. 预初始化特征配置和数据块（避免循环内重复创建）
+            val chunk = ByteArray(DEFAULT_MTU - 3) { TEST_DATA_BYTE }
+            downlinkChar?.apply {
+                writeType = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
+                value = chunk // 设置初始值
+            }
+
+            // 2. 使用流量控制机制控制发送速率
+            var writePending = false
+            val yieldThreshold = 30L // 适当调整以平衡吞吐量和内存
+
             while (isTestingDownlink) {
-                downlinkChar?.apply { writeType = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE; value = chunk }
-                gatt?.writeCharacteristic(downlinkChar)
-                downlinkTester.addBytes(chunk.size)
-                delay(1) // or use 1 or more
+                // 3. 使用非阻塞检查控制并发写入
+                if (!writePending) {
+                    writePending = true
+                    gatt?.writeCharacteristic(downlinkChar)
+                    downlinkTester.addBytes(chunk.size)
+
+                    // 4. 动态调整延迟（根据MTU大小优化）
+                    val delayMs = when (DEFAULT_MTU) {
+                        in 0..100 -> 5L
+                        in 101..200 -> 3L
+                        else -> 2L
+                    }
+                    delay(delayMs)
+
+                    // 模拟异步完成回调
+                    writePending = false
+                } else {
+                    // 5. 避免过度占用CPU资源
+                    delay(1)
+                }
+
+                // 6. 定期让出协程执行权（防止任务堆积）
+                if (System.currentTimeMillis() % yieldThreshold == 0L) {
+                    yield()
+                }
             }
         }
     }
@@ -280,15 +368,11 @@ class BleCentralManager(private val context: Context) {
         stopUplinkTest()
         stopDownlinkTest()
 
-        // 主动断开连接并释放资源
-//        gatt?.run {
-//            disconnect()
-//            close()
-//        }
-//        gatt = null
 
-        // 停止所有测试
-//        coroutineScope.cancel()
-//        bandwidthTester.stop()
+        controlChar?.value = byteArrayOf(CMD_STOP_TEST)
+        gatt?.writeCharacteristic(controlChar)
+
+        coroutineScope.cancel()
+        bandwidthTester.stop()
     }
 }

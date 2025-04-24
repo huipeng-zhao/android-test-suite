@@ -1,11 +1,15 @@
 package ai.looki.ble.common
 
 import kotlinx.coroutines.*
+import java.util.LinkedList
 import java.util.concurrent.atomic.AtomicLong
 
 class DirectionalBandwidthTester {
+    private val windowSize = 1000L // 1秒窗口
+    private val byteRecords = LinkedList<Pair<Long, Int>>()
+
     private var startTime = 0L
-    private val totalBytes = AtomicLong(0)
+    val totalBytes = AtomicLong(0)
     private var job: Job? = null
     private var callback: ((Float) -> Unit)? = null
 
@@ -21,9 +25,18 @@ class DirectionalBandwidthTester {
         startLoop()
     }
 
-    fun addBytes(n: Int) {
-        totalBytes.addAndGet(n.toLong())
+    fun addBytes(bytes: Int) {
+        synchronized(this) {
+            val now = System.currentTimeMillis()
+            byteRecords.add(now to bytes)
+            // 移除超过窗口期的记录
+            while (byteRecords.isNotEmpty() && now - byteRecords.first.first > windowSize) {
+                byteRecords.removeFirst()
+            }
+        }
     }
+
+    fun getTotalBytes() = totalBytes.get()
 
     fun setCallback(cb: (Float) -> Unit) {
         callback = cb
@@ -35,20 +48,16 @@ class DirectionalBandwidthTester {
     }
 
     // 修改 currentMbps() 为计算瞬时速率
+
     fun currentMbps(): Float {
-        val currentTime = System.currentTimeMillis()
-        val deltaTime = (currentTime - lastCheckTime) / 1000f
-        if (deltaTime <= 0) return 0f
-
-        val currentTotal = totalBytes.get()
-        val deltaBytes = currentTotal - lastTotalBytes
-        val rate = deltaBytes * 8 / (deltaTime * 1_000_000f)
-
-        // 更新记录
-        lastTotalBytes = currentTotal
-        lastCheckTime = currentTime
-
-        return rate
+        synchronized(this) {
+            if (byteRecords.size < 2) return 0f
+            val first = byteRecords.first
+            val last = byteRecords.last
+            val durationSec = (last.first - first.first) / 1000f
+            val totalBits = byteRecords.sumOf { it.second.toLong() } * 8
+            return totalBits / (durationSec * 1_000_000f)
+        }
     }
 
     private fun startLoop() {

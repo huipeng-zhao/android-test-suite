@@ -19,8 +19,8 @@
         android:id="@+id/tvServiceStatus"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="状态：未开始扫描"
-        android:textColor="@android:color/black"
+        android:text="状态：未开始扫描，请确认Devo端已启动\n且Phone和Devo端进行过一次蓝牙配对，并断开配对"
+        android:textColor="@android:color/holo_green_dark"
         android:layout_marginStart="16dp"
         android:layout_marginEnd="16dp"
         android:layout_marginTop="8dp"
@@ -65,5 +65,18 @@
         app:layout_constraintBottom_toBottomOf="@id/btnTestDownlink"
         app:layout_constraintStart_toEndOf="@id/btnTestDownlink"
         app:layout_constraintTop_toBottomOf="@id/btnTestUplink" />
+
+    <TextView
+        android:id="@+id/tvWarningText"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="BLE高速率模式（2M PHY）: 设备间距20cm内速率最高 \n\n此模式用于测试极限速率，但随着设备间距离增长，速率衰减更快"
+        android:textColor="@android:color/holo_blue_light"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginTop="8dp"
+        app:layout_constraintTop_toBottomOf="@id/btnTestDownlink"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

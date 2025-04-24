@@ -20,7 +20,7 @@ object Constants {
     const val CMD_STOP_DOWNLINK: Byte = 0x22       // 停止测试
 
     // MTU配置（需双方协商一致）
-    const val DEFAULT_MTU = 512
+    const val DEFAULT_MTU = 500
 
     // 测试数据填充字节
     const val TEST_DATA_BYTE: Byte = 0x55 // 01010101（便于校验）

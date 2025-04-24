@@ -10,7 +10,7 @@
         android:id="@+id/tvDescriptorStatus"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="通知：未开启"
+        android:text="通知：未开启，请在Phone端点击[开始扫描]"
         android:textColor="@android:color/holo_blue_dark"
         android:textSize="16sp"
         android:layout_marginStart="16dp"
@@ -45,5 +45,19 @@
         android:textSize="18sp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/tvUplinkSpeed" />
+
+    <TextView
+        android:id="@+id/tvWarning"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="如果更换手机端测试，出现发送/接收为0的情况，是BLE链接异常，需重启devo端再进行测试"
+        android:textColor="@android:color/holo_green_light"
+        android:textSize="16sp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginTop="8dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tvDownlinkSpeed"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

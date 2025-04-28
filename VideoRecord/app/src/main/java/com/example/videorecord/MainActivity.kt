@@ -163,13 +163,9 @@ class MainActivity : ComponentActivity() {
     }
     @Composable
     fun VideoRecorderApp(model: CameraModel) {
-        val context = LocalContext.current
         var isRecording by remember { mutableStateOf(false) }
         var showDialog by remember { mutableStateOf(false) }
-        var showPhotoDialog by remember { mutableStateOf(false) }
         val recordingFile by model.mFileName.collectAsState()
-        val imageFile by model.mImageData.collectAsState(initial = byteArrayOf())
-        var lastPhoto by remember { mutableStateOf(byteArrayOf()) }
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 if (!isRecording) {
@@ -190,34 +186,15 @@ class MainActivity : ComponentActivity() {
                 }
 
                 Button(onClick = {
-                    model.capturePhoto()
-                }) {
-                    Text("Capture")
-                }
-
-                Button(onClick = {
                     showDialog = true
                 },
                     enabled = recordingFile != null && !isRecording) {
                     Text("Last Video")
                 }
-
-                Button(onClick = {
-                    showPhotoDialog = true },
-                    enabled = !imageFile.isEmpty()) {
-                    Text("Last Photo")
-                }
             }
         }
         if (showDialog) {
             model.mFileName.also { VideoDialog(onDismissRequest = { showDialog = false }, it.value!!) }
-        }
-
-        if (showPhotoDialog) {
-            ImageDialog(imageFile) {
-                showPhotoDialog = false
-                lastPhoto = byteArrayOf()
-            }
         }
     }
 

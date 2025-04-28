@@ -32,6 +32,7 @@ class GcsvRecorder(context: Context) : SensorEventListener {
     private var myIsActive = true
     private var myThread: Thread
     private var myStartTime: Long = 0L
+    private var myLastTime: Long = 0L
     private var myRawGyrCount = 0L
     private var myRawAccCount = 0L
 
@@ -115,7 +116,6 @@ class GcsvRecorder(context: Context) : SensorEventListener {
         myEventQueue.clear()
         myLastAccEvent = null
         myLastGyrEvent = null
-        myStartTime = SystemClock.elapsedRealtime()
         val samplingPeriodUs = (1_000_000 / hz).toInt()
         arrayOf(Sensor.TYPE_ACCELEROMETER, Sensor.TYPE_GYROSCOPE).forEach { sensorType ->
             mySensorManager.registerListener(this, mySensorManager.getDefaultSensor(sensorType), samplingPeriodUs)
@@ -125,6 +125,8 @@ class GcsvRecorder(context: Context) : SensorEventListener {
     // Close the current recording file and open a new one.
     fun startRecord(file: File) {
         Log.d(TAG, "startRecord: file=${file.path}")
+        myStartTime = 0L
+        myLastTime = 0L
         myRawGyrCount = 0
         myRawAccCount = 0
         myEventQueue.put(Event.FileEvent(file))
@@ -132,9 +134,9 @@ class GcsvRecorder(context: Context) : SensorEventListener {
 
     fun stop() {
         if (myStartTime > 0) {
-            val elapsedTime = (SystemClock.elapsedRealtime() - myStartTime).toDouble()/1000.0 // in seconds
-            val hzGyr = if (elapsedTime > 0) myRawGyrCount.toDouble()/elapsedTime else 0.0
-            val hzAcc = if (elapsedTime > 0) myRawAccCount.toDouble()/elapsedTime else 0.0
+            val elapsedTime = (myLastTime - myStartTime).toDouble()/1000000000.0 // in seconds
+            val hzGyr = if (elapsedTime > 0) (myRawGyrCount-1).toDouble()/elapsedTime else 0.0
+            val hzAcc = if (elapsedTime > 0) (myRawAccCount-1).toDouble()/elapsedTime else 0.0
             Log.d(TAG, "stop: gyr.hz=%.1f, acc.hz=%.1f, RawGyrCount=%d".format(hzGyr, hzAcc, myRawGyrCount))
             myStartTime = 0L // reset start time
         } else {
@@ -147,7 +149,14 @@ class GcsvRecorder(context: Context) : SensorEventListener {
     override fun onSensorChanged(event: SensorEvent?) {
         event ?: return
         when (event.sensor.type) {
-            Sensor.TYPE_ACCELEROMETER -> { myLastAccEvent = event; myRawGyrCount +=1 }
+            Sensor.TYPE_ACCELEROMETER -> {
+                myLastAccEvent = event
+                myRawGyrCount +=1
+                if (myRawGyrCount == 1L) { // the first gyroscope event
+                    myStartTime = event.timestamp
+                }
+                myLastTime = event.timestamp
+            }
             Sensor.TYPE_GYROSCOPE -> { myLastGyrEvent = event; myRawAccCount += 1 }
         }
         val lastAcc = myLastAccEvent

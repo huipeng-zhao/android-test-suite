@@ -1,6 +1,5 @@
 package com.example.videorecord
 
-import ai.looki.companion.devo_main.lib.GcsvRecorder
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Application

@@ -1,4 +1,4 @@
-package ai.looki.companion.devo_main.lib
+package com.example.videorecord
 
 import android.content.Context
 import android.hardware.Sensor

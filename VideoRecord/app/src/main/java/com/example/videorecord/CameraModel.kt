@@ -369,6 +369,7 @@ class CameraModel(val context: Application) : AndroidViewModel(context) {
                     reset()
                     release()
                 }
+                myGcsvRecorder.stop()
 
             } catch (e: Exception) {
                 e.printStackTrace()

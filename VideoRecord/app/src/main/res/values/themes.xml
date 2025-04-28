@@ -1,0 +1,5 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Theme.LookiCompanion" parent="android:Theme.Material.Light.NoActionBar" />
+        <!-- Primary brand color. -->
+</resources>

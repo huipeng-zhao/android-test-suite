@@ -85,7 +85,7 @@ class CameraModel(val context: Application) : AndroidViewModel(context) {
         Manifest.permission.RECORD_AUDIO,
         Manifest.permission.CAMERA,
         Manifest.permission.WRITE_EXTERNAL_STORAGE,
-        Manifest.permission.MANAGE_EXTERNAL_STORAGE,
+        Manifest.permission.READ_EXTERNAL_STORAGE,
         Manifest.permission.RECEIVE_BOOT_COMPLETED,
     )
     var missingPermissions = MutableStateFlow<List<String>?>(null)
@@ -149,7 +149,7 @@ class CameraModel(val context: Application) : AndroidViewModel(context) {
                     myCallbackExecutor.execute(Runnable { callback?.onThumbnailComplete(thumbnail) }) // run callback async.
                     val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
                     val fileName = "thumb_$timeStamp"
-                    val path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
+                    val path =File(context.getExternalFilesDir(Environment.DIRECTORY_DCIM), fileName)
                     thumbFile = saveJpegFile(path.path, fileName, jpeg, jpeg.size, imageCaptureTimestampMs)
                     thumbFile?.also { saveExif(it, imageCaptureTimestampMs, thumbExposureTime, thumbSensitivity) }
                 }
@@ -221,8 +221,7 @@ class CameraModel(val context: Application) : AndroidViewModel(context) {
 
     fun newFile(timestampMs: Long, type: Int): File? {
         try {
-            val privateDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
-            val subDir = File(privateDir, "$timestampMs")
+            val fileDir = context.getExternalFilesDir(Environment.DIRECTORY_DCIM)?.absolutePath
 
             val fileName = when (type) {
                 0 -> "imu$timestampMs.gcsv"
@@ -233,8 +232,8 @@ class CameraModel(val context: Application) : AndroidViewModel(context) {
                     return null
                 }
             }
-
-            val file = File(subDir, fileName)
+            val filePath = "$fileDir/$fileName"
+            val file = File(filePath)
             return file
         } catch (e: Exception) {
             Log.e(TAG, "newFile failed: ${e.message}")
@@ -522,8 +521,9 @@ class CameraModel(val context: Application) : AndroidViewModel(context) {
             buffer.get(IMAGE_JPEG_BUF, 0, length)
             val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
             val fileName = "photo_$timeStamp"
-            val path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
-            return saveJpegFile(path.path, fileName,
+            val path = context.getExternalFilesDir(Environment.DIRECTORY_DCIM)?.absolutePath
+            return saveJpegFile(
+                path.toString(), fileName,
                 IMAGE_JPEG_BUF, length, timestampMs)
         }
     }

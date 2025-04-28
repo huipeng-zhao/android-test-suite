@@ -28,13 +28,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import java.io.BufferedWriter
 import java.io.File
 import java.io.FileOutputStream
-import java.io.FileWriter
-import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.Executors
 import kotlin.io.use
+import kotlin.time.Duration.Companion.nanoseconds
+import kotlin.time.DurationUnit
 import kotlin.time.measureTime
 import kotlin.time.measureTimedValue
 import kotlin.use
@@ -49,7 +49,6 @@ class CameraModel(val context: Application) : AndroidViewModel(context) {
 
     private val IMAGE_SIZE = Size(4000, 3000)
     private val IMAGE_JPEG_BUF_DEF_LEN = 8*1024*1024 // 8MB
-    private val myFileManager = MediaFileManager.getInstance()
     private val myGcsvRecorder = GcsvRecorder(context)
 
     // Pre-allocate buffers to avoid memory allocation in runtime.
@@ -85,20 +84,10 @@ class CameraModel(val context: Application) : AndroidViewModel(context) {
     }
     val REQUIRED_PERMISSIONS = arrayOf(
         Manifest.permission.RECORD_AUDIO,
-        // camera
         Manifest.permission.CAMERA,
-        // file
         Manifest.permission.WRITE_EXTERNAL_STORAGE,
         Manifest.permission.MANAGE_EXTERNAL_STORAGE,
-        // internet
-        // bluetooth
-
-        // wifi
-
-        // vibrator
-        // service
         Manifest.permission.RECEIVE_BOOT_COMPLETED,
-        // install
     )
     var missingPermissions = MutableStateFlow<List<String>?>(null)
     private val myHandler = ThreadHandler("ImageSaveThread") // run ImageReader.
@@ -230,17 +219,39 @@ class CameraModel(val context: Application) : AndroidViewModel(context) {
             camera.createCaptureSession(config)
         }
     }
-    private fun startGcsvRecord(videoType: MediaFileType, videoRecordTimestampMs: Long) {
-        val gcsvType = if (videoType == MediaFileType.USER_VIDEO) MediaFileType.USER_VIDEO_IMU else MediaFileType.AUTO_VIDEO_IMU
-        myFileManager.newFile(gcsvType, videoRecordTimestampMs)?.also {
+
+    fun newFile(timestampMs: Long, type: Int): File? {
+        try {
+            val privateDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
+            val subDir = File(privateDir, "$timestampMs")
+
+            val fileName = when (type) {
+                0 -> "imu$timestampMs.gcsv"
+                1 -> "time$timestampMs.csv"
+                2 -> "$timestampMs.mp4"
+                else -> {
+                    println("Invalid type: $type")
+                    return null
+                }
+            }
+
+            val file = File(subDir, fileName)
+            return file
+        } catch (e: Exception) {
+            Log.e(TAG, "newFile failed: ${e.message}")
+        }
+        return null
+    }
+
+    private fun startGcsvRecord(videoRecordTimestampMs: Long) {
+        newFile(videoRecordTimestampMs, 0)?.also {
             myGcsvRecorder.startSensor()
             myGcsvRecorder.startRecord(it)
         }
     }
 
-    private fun startTimestampRecord(videoType: MediaFileType, videoRecordTimestampMs: Long) {
-        val fileType = if (videoType == MediaFileType.USER_VIDEO) MediaFileType.USER_VIDEO_TIME else MediaFileType.AUTO_VIDEO_TIME
-        myFileManager.newFile(fileType, videoRecordTimestampMs).also {
+    private fun startTimestampRecord(videoRecordTimestampMs: Long) {
+        newFile(videoRecordTimestampMs, 1).also {
             myFrameTimeRecorder = it?.bufferedWriter()
             myFrameTimeRecorder?.write("#,ExposureStartNS,ExposureTimeNS,CaptureDurationNS\n")
         }
@@ -249,7 +260,6 @@ class CameraModel(val context: Application) : AndroidViewModel(context) {
         if (isBusy()) {
             return
         }
-        val mediaFileType: MediaFileType = MediaFileType.USER_VIDEO
         myIsVideoRecording.value = true
         openCamera { camera ->
             if (camera == null) {
@@ -259,10 +269,7 @@ class CameraModel(val context: Application) : AndroidViewModel(context) {
                 val videoRecordTimestampMs = System.currentTimeMillis()
                 @Suppress("DEPRECATION")
                 val mediaRecorder = MediaRecorder().apply {
-                    val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-                    val fileName = "video_$timeStamp.mp4"
-                    val path = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM), fileName)
-                    val file = myFileManager.newFile(mediaFileType, videoRecordTimestampMs)
+                    val file = newFile(videoRecordTimestampMs, 2)
                     mFileName.tryEmit(file)
 
                     // input
@@ -285,8 +292,8 @@ class CameraModel(val context: Application) : AndroidViewModel(context) {
                 val config = createSessionConfiguration(listOf(mediaRecorder.surface)) { success, session ->
                     if (!success) { return@createSessionConfiguration }
 
-                    startTimestampRecord(mediaFileType, videoRecordTimestampMs)
-                    startGcsvRecord(mediaFileType, videoRecordTimestampMs)
+                    startTimestampRecord(videoRecordTimestampMs)
+                    startGcsvRecord(videoRecordTimestampMs)
 
 
                     myCameraSession = session
@@ -310,6 +317,7 @@ class CameraModel(val context: Application) : AndroidViewModel(context) {
                                 return
                             }
                             if (!check3aReady(result)) return
+                            Log.d("zwjtest " , "3a ready")
                             is3aReady = true
                         }
                         // we only care about the failure, to stop the recording in time.
@@ -357,6 +365,7 @@ class CameraModel(val context: Application) : AndroidViewModel(context) {
                 // Actually, the session will be closed automatically when camera closed, we just close it manually.
                 myCameraSession?.close()
                 myCameraDevice?.close()
+                myFrameTimeRecorder?.close()
                 myVideoRecorder?.apply {
                     stop()
                     reset()
@@ -369,6 +378,7 @@ class CameraModel(val context: Application) : AndroidViewModel(context) {
                 myVideoRecorder = null
                 closeCamera()
                 myIsVideoRecording.value = false
+                myFrameTimeRecorder=null
             }
         }
     }
@@ -562,9 +572,15 @@ class CameraModel(val context: Application) : AndroidViewModel(context) {
         val exposureTime = result[CaptureResult.SENSOR_EXPOSURE_TIME]
         val sensitivity = result[CaptureResult.SENSOR_SENSITIVITY]
         myCheck3aCount += 1
+        Log.v(TAG, StringBuilder().let {
+            it.append("check3aReady[%2d]: ".format(myCheck3aCount))
+            it.append("aeState=${aeState}, awbState=${awbState}, afState=${afState}, ")
+            it.append("exposureTime=%.3fms, ".format(exposureTime?.nanoseconds?.toDouble(DurationUnit.MILLISECONDS)))
+            it.append("sensitivity=${sensitivity}")
+            it.toString()
+        })
         return aeState == CaptureResult.CONTROL_AE_STATE_CONVERGED
-//                && awbState == CaptureResult.CONTROL_AWB_STATE_CONVERGED
-//                && afState == CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED
+                && awbState == CaptureResult.CONTROL_AWB_STATE_CONVERGED
     }
 
 }

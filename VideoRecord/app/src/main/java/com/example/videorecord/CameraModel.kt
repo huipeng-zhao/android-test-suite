@@ -220,9 +220,27 @@ class CameraModel(val context: Application) : AndroidViewModel(context) {
     }
 
     fun newFile(timestampMs: Long, type: Int): File? {
+        var videoRecordDir: File? = null
         try {
-            val fileDir = context.getExternalFilesDir(Environment.DIRECTORY_DCIM)?.absolutePath
+            val sdcardDir = Environment.getExternalStorageDirectory()
 
+            videoRecordDir = File(sdcardDir, "videorecord")
+
+            if (!videoRecordDir.exists()) {
+                val created = videoRecordDir.mkdirs()
+                if (!created) {
+                    println("Failed to create directory: ${videoRecordDir.absolutePath}")
+                    return null
+                }
+            }
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+            println("Error creating directory: ${e.message}")
+        }
+
+        try {
+            val fileDir = videoRecordDir!!.absolutePath
             val fileName = when (type) {
                 0 -> "imu$timestampMs.gcsv"
                 1 -> "time$timestampMs.csv"
@@ -369,7 +387,7 @@ class CameraModel(val context: Application) : AndroidViewModel(context) {
                     reset()
                     release()
                 }
-
+                myGcsvRecorder.close()
             } catch (e: Exception) {
                 e.printStackTrace()
             } finally {
@@ -521,7 +539,10 @@ class CameraModel(val context: Application) : AndroidViewModel(context) {
             buffer.get(IMAGE_JPEG_BUF, 0, length)
             val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
             val fileName = "photo_$timeStamp"
-            val path = context.getExternalFilesDir(Environment.DIRECTORY_DCIM)?.absolutePath
+
+            val sdcardDir = Environment.getExternalStorageDirectory()
+            val videoRecordDir = File(sdcardDir, "videorecord")
+            val path = videoRecordDir?.absolutePath
             return saveJpegFile(
                 path.toString(), fileName,
                 IMAGE_JPEG_BUF, length, timestampMs)

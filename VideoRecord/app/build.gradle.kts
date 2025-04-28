@@ -11,21 +11,8 @@ android {
     namespace = "com.example.videorecord"
     compileSdk = 35
 
-
-    signingConfigs {
-        create("platform") {
-            storeFile = file("platform.jks")
-            storePassword = "looki.ai"
-            keyAlias = "platform"
-            keyPassword = "looki.ai"
-            enableV2Signing = true
-            enableV3Signing = true
-            enableV4Signing = true
-        }
-    }
-
     defaultConfig {
-        applicationId = "ai.looki.companion.devo_main"
+        applicationId = "ai.looki.demo.videorecord"
         minSdk = 30
         //noinspection ExpiredTargetSdkVersion
         targetSdk = 30
@@ -43,10 +30,6 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("platform")
-        }
-        getByName("debug") {
-            signingConfig = signingConfigs.getByName("platform")
         }
     }
     compileOptions {

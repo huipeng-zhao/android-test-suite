@@ -1,8 +1,11 @@
 package com.example.videorecord
+import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.util.Log
-import android.view.MotionEvent
+import android.provider.Settings
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
@@ -39,29 +42,26 @@ import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import java.io.File
-import kotlin.collections.isNotEmpty
-import kotlin.collections.joinToString
+
 
 class MainActivity : ComponentActivity() {
     private val TAG = MainActivity::class.java.simpleName
 
     var myModel: CameraModel? = null
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val app = application as MainApplication
         val model = app.sharedModel
 
         myModel = model
-
         setContent {
             MainContent(model)
         }
+
     }
 
-
     @Composable
-    fun MainContent(model : CameraModel) {
+    fun MainContent(model: CameraModel) {
         val permissionLauncher = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.RequestMultiplePermissions(),
             onResult = { isGranted ->
@@ -70,40 +70,67 @@ class MainActivity : ComponentActivity() {
                     Log.d("RequestPermissions", "[${if (it.value) "granted" else "missing"}] permission: ${it.key}")
                     if (!it.value) missingList.add(it.key)
                 }
-                if (missingList.isEmpty()) {
-                    initAfterPermissionsGranted()
-                }
                 model.missingPermissions.value = missingList
             }
         )
+
+        val context = LocalContext.current
+
         val missingPermissionsState by model.missingPermissions.collectAsState()
         val missingPermissions = missingPermissionsState
         if (missingPermissions == null) {
-            SideEffect { permissionLauncher.launch(model.REQUIRED_PERMISSIONS) }
+            SideEffect { permissionLauncher.launch(model.REQUIRED_PERMISSIONS)
+            }
         } else {
-            if (missingPermissions.isNotEmpty()) {
+            if (!hasManageExternalStoragePermission(context)) {
                 Scaffold { innerPadding ->
                     Column(
-                        modifier = Modifier.padding(innerPadding).fillMaxSize(),
-                        verticalArrangement = Arrangement.Center
+                        modifier = Modifier
+                            .padding(innerPadding)
+                            .fillMaxSize(),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("Missing permissions:\n" + missingPermissions.joinToString("\n") { "- " + it.replaceFirst("android.permission.", "") })
+                        Text("Missing permissions: MANAGE_ALL_FILES_ACCESS_PERMISSION\n Please turn on in settings")
                         Button(
                             modifier = Modifier.fillMaxWidth(),
                             content = { Text("Request Permissions") },
-                            onClick = { permissionLauncher.launch(model.REQUIRED_PERMISSIONS) },
+                            onClick = {
+                                if (!hasManageExternalStoragePermission(context)) {
+                                    val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                                    try {
+                                        startActivityForResult(intent, 1)
+                                        finish()
+                                    } catch (e: Exception) {
+                                        e.printStackTrace()
+                                    }
+                                } else {
+                                    permissionLauncher.launch(model.REQUIRED_PERMISSIONS)
+                                }
+                            },
                         )
                     }
                 }
-
             } else {
                 VideoRecorderApp(model)
             }
         }
     }
 
-    fun initAfterPermissionsGranted() {
-        Log.d(TAG, "permission allow")
+    private fun hasManageExternalStoragePermission(context: Context): Boolean {
+        return Environment.isExternalStorageManager()
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode == 1) {
+            if (hasManageExternalStoragePermission(this)) {
+                Log.d(TAG, "User granted MANAGE_EXTERNAL_STORAGE permission")
+            } else {
+                Log.d(TAG, "User did not grant MANAGE_EXTERNAL_STORAGE permission")
+            }
+        }
     }
 
     @Composable

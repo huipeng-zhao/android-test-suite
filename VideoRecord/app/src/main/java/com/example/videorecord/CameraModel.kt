@@ -74,8 +74,23 @@ class CameraModel(val context: Application) : AndroidViewModel(context) {
     var missingPermissions = MutableStateFlow<List<String>?>(null)
 
     fun newFile(timestampMs: Long, type: Int): File? {
+        var videoRecordDir: File? = null
         try {
-            val fileDir = context.getExternalFilesDir(Environment.DIRECTORY_DCIM)?.absolutePath
+            val sdcardDir = Environment.getExternalStorageDirectory()
+            videoRecordDir = File(sdcardDir, "videorecord")
+            if (!videoRecordDir.exists()) {
+                val created = videoRecordDir.mkdirs()
+                if (!created) {
+                    println("Failed to create directory: ${videoRecordDir.absolutePath}")
+                    return null
+                }
+            }
+        } catch (e: Exception) {
+            println("Error creating directory: ${e.message}")
+        }
+
+        try {
+            val fileDir = videoRecordDir!!.absolutePath
 
             val fileName = when (type) {
                 0 -> "imu$timestampMs.gcsv"
